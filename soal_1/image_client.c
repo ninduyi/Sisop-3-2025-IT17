@@ -107,6 +107,33 @@ int main() {
         download_zip();
     }
 
+    int sock = 0;
+    struct sockaddr_in serv_addr;
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("\nSocket creation error\n");
+        return -1;
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
+        printf("\nInvalid address\n");
+        return -1;
+    }
+
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+        printf("\nConnection Failed\n");
+        return -1;
+    }
+
+    // Cetak alamat IP dan port yang terhubung
+    char ip_str[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &serv_addr.sin_addr, ip_str, sizeof(ip_str));
+    printf("Connected to address %s:%d\n", ip_str, ntohs(serv_addr.sin_port));
+    fflush(stdout);
+
     while (1) {
         print_menu();
         printf(">> ");
@@ -115,27 +142,6 @@ int main() {
         scanf("%d", &choice);
 
         if (choice == 3) break;
-
-        int sock = 0;
-        struct sockaddr_in serv_addr;
-
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            printf("\nSocket creation error\n");
-            return -1;
-        }
-
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(PORT);
-
-        if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-            printf("\nInvalid address\n");
-            return -1;
-        }
-
-        if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-            printf("\nConnection Failed\n");
-            return -1;
-        }
 
         if (choice == 1) {
             char filename[256];
@@ -175,9 +181,8 @@ int main() {
                 printf("\nSuccess! Image saved as %s\n", client_path);
             }
         }
-
-        close(sock);
     }
 
+    close(sock);
     return 0;
 }
