@@ -1,7 +1,3 @@
-// ==== PERBAIKAN PADA SERVER ====
-// Ubah path pencarian file input agar sinkron dengan struktur direktori "client/secrets/"
-// -------------------------------
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
