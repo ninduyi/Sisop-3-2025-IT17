@@ -35,7 +35,7 @@ const char *dungeon_names[] = {
     "Double Dungeon", "Demon Castle", "Pyramid Dungeon", "Red Gate Dungeon",
     "Hunters Guild Dungeon", "Busan A-Rank Dungeon", "Insects Dungeon",
     "Goblins Dungeon", "D-Rank Dungeon", "Gwanak Mountain Dungeon",
-    "Hapjeong Subway Station Dungeon"
+    "Demon King", "Dragon's Lair", "Underground Dungeon"
 };
 
 void attach_shared_memory() {
@@ -54,32 +54,39 @@ void detach_and_cleanup() {
 }
 
 void show_hunters() {
-    printf("\n=============== HUNTER INFO ===============\n");
+    printf("\n================================ HUNTER INFO ================================\n");
+    printf("| %-3s | %-20s | %-5s | %-5s | %-5s | %-5s | %-5s | %-8s |\n",
+           "No", "Name", "Level", "EXP", "ATK", "HP", "DEF", "Status");
+    printf("-------------------------------------------------------------------------------\n");
+
+    int num = 1;
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (hunters[i].in_use) {
-            printf("Name: %-15s | Level: %-2d | EXP: %-4d | ATK: %-3d | HP: %-3d | DEF: %-3d | Status: %s\n",
-                   hunters[i].name, hunters[i].level, hunters[i].exp,
+            printf("| %-3d | %-20s | %-5d | %-5d | %-5d | %-5d | %-5d | %-8s |\n",
+                   num++, hunters[i].name, hunters[i].level, hunters[i].exp,
                    hunters[i].atk, hunters[i].hp, hunters[i].def,
                    hunters[i].banned ? "BANNED" : "ACTIVE");
         }
     }
+    printf("===============================================================================\n");
 }
 
 void show_dungeons() {
-    printf("\n=============== DUNGEON INFO ===============\n");
-    int count = 1;
+    printf("\n==================================== DUNGEON INFO ====================================\n");
+    printf("| %-3s | %-25s | %-10s | %-5s | %-5s | %-5s | %-12s |\n",
+           "No", "Name", "Min Level", "EXP", "ATK", "HP", "Key");
+    printf("---------------------------------------------------------------------------------------\n");
+
+    int num = 1;
     for (int i = 0; i < MAX_DUNGEONS; i++) {
         if (dungeons[i].in_use) {
-            printf("\n[Dungeon %d]\n", count++);
-            printf("Name            : %s\n", dungeons[i].name);
-            printf("Minimum Level   : %d\n", dungeons[i].min_level);
-            printf("EXP Reward      : %d\n", dungeons[i].exp_reward);
-            printf("ATK             : %d\n", dungeons[i].atk_reward);
-            printf("HP              : %d\n", dungeons[i].hp_reward);
-            printf("DEF             : %d\n", dungeons[i].def_reward);
-            printf("Key             : %ld\n", dungeons[i].key);
+            printf("| %-3d | %-25s | %-10d | %-5d | %-5d | %-5d | %-12ld |\n",
+                   num++, dungeons[i].name, dungeons[i].min_level,
+                   dungeons[i].exp_reward, dungeons[i].atk_reward,
+                   dungeons[i].hp_reward, dungeons[i].key);
         }
     }
+    printf("======================================================================================\n");
 }
 
 void generate_dungeon() {
