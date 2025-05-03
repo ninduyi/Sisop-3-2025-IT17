@@ -1,4 +1,4 @@
-# Praktikum Sistem Operasi Modul 1 - IT17
+# Praktikum Sistem Operasi Modul 3 - IT17
 
 ## Anggota Kelompok
 
