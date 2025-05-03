@@ -50,14 +50,14 @@ void detach_and_cleanup() {
     shmdt(dungeons);
     shmctl(shmid_hunter, IPC_RMID, NULL);
     shmctl(shmid_dungeon, IPC_RMID, NULL);
-    printf("\n[INFO] Sistem dimatikan. Shared memory telah dihapus.\n");
+    printf("Shared memory deleted. Exiting system.\n");
 }
 
 void show_hunters() {
-    printf("\n=== HUNTER INFO ===\n");
+    printf("\n=============== HUNTER INFO ===============\n");
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (hunters[i].in_use) {
-            printf("Name: %s | Level: %d | EXP: %d | ATK: %d | HP: %d | DEF: %d | Status: %s\n",
+            printf("Name: %-15s | Level: %-2d | EXP: %-4d | ATK: %-3d | HP: %-3d | DEF: %-3d | Status: %s\n",
                    hunters[i].name, hunters[i].level, hunters[i].exp,
                    hunters[i].atk, hunters[i].hp, hunters[i].def,
                    hunters[i].banned ? "BANNED" : "ACTIVE");
@@ -66,13 +66,18 @@ void show_hunters() {
 }
 
 void show_dungeons() {
-    printf("\n=== DUNGEON INFO ===\n");
+    printf("\n=============== DUNGEON INFO ===============\n");
+    int count = 1;
     for (int i = 0; i < MAX_DUNGEONS; i++) {
         if (dungeons[i].in_use) {
-            printf("Name: %s | Min Level: %d | EXP: %d | ATK: %d | HP: %d | DEF: %d | Key: %ld\n",
-                   dungeons[i].name, dungeons[i].min_level, dungeons[i].exp_reward,
-                   dungeons[i].atk_reward, dungeons[i].hp_reward, dungeons[i].def_reward,
-                   dungeons[i].key);
+            printf("\n[Dungeon %d]\n", count++);
+            printf("Name            : %s\n", dungeons[i].name);
+            printf("Minimum Level   : %d\n", dungeons[i].min_level);
+            printf("EXP Reward      : %d\n", dungeons[i].exp_reward);
+            printf("ATK             : %d\n", dungeons[i].atk_reward);
+            printf("HP              : %d\n", dungeons[i].hp_reward);
+            printf("DEF             : %d\n", dungeons[i].def_reward);
+            printf("Key             : %ld\n", dungeons[i].key);
         }
     }
 }
@@ -89,7 +94,9 @@ void generate_dungeon() {
             d->def_reward = rand() % 26 + 25;
             d->exp_reward = rand() % 151 + 150;
             d->key = time(NULL) + rand();
-            printf("Dungeon generated!\n");
+            printf("\nDungeon generated!\n");
+            printf("Name           : %s\n", d->name);
+            printf("Minimum Level  : %d\n", d->min_level);
             return;
         }
     }
@@ -97,37 +104,56 @@ void generate_dungeon() {
 }
 
 void ban_hunter() {
-    printf("=== LIST HUNTER ===\n");
-    for (int i = 0; i < MAX_HUNTERS; i++) {
-        if (hunters[i].in_use)
-            printf("- %s (%s)\n", hunters[i].name, hunters[i].banned ? "BANNED" : "ACTIVE");
+    int choice;
+    char name[NAME_LEN];
+
+    printf("\n=========== BAN/UNBAN MENU ===========\n");
+    printf("1. Ban Hunter\n");
+    printf("2. Unban Hunter\n");
+    printf("Choice: ");
+    scanf("%d", &choice); getchar();
+
+    if (choice != 1 && choice != 2) {
+        printf("Invalid choice.\n");
+        return;
     }
 
-    char name[NAME_LEN];
-    printf("Hunter name to (un)ban: ");
+    printf("\n=========== HUNTER LIST ===========\n");
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use) {
+            printf("- %s [%s]\n", hunters[i].name, hunters[i].banned ? "BANNED" : "ACTIVE");
+        }
+    }
+
+    printf("Enter hunter name: ");
     fgets(name, NAME_LEN, stdin);
     name[strcspn(name, "\n")] = 0;
 
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
-            hunters[i].banned = !hunters[i].banned;
-            printf("Hunter %s is now %s\n", name, hunters[i].banned ? "BANNED" : "UNBANNED");
+            hunters[i].banned = (choice == 1 ? 1 : 0);
+            printf("Hunter %s is now %s.\n", name, hunters[i].banned ? "BANNED" : "UNBANNED");
             return;
         }
     }
+
     printf("Hunter not found.\n");
 }
 
 void reset_hunter() {
     char name[NAME_LEN];
-    printf("Hunter name to reset: ");
+    printf("\nEnter hunter name to reset: ");
     fgets(name, NAME_LEN, stdin);
     name[strcspn(name, "\n")] = 0;
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
-            hunters[i].level = 1; hunters[i].exp = 0; hunters[i].atk = 10;
-            hunters[i].hp = 100; hunters[i].def = 5; hunters[i].banned = 0;
-            printf("Stats reset.\n");
+            hunters[i].level = 1;
+            hunters[i].exp = 0;
+            hunters[i].atk = 10;
+            hunters[i].hp = 100;
+            hunters[i].def = 5;
+            // DO NOT RESET BANNED FLAG
+            printf("Stats reset for %s. (Ban status unchanged)\n", name);
             return;
         }
     }
@@ -137,22 +163,26 @@ void reset_hunter() {
 void menu() {
     int c;
     while (1) {
-        printf("\n=== SYSTEM MENU ===\n1. Hunter Info\n2. Dungeon Info\n3. Generate Dungeon\n4. Ban Hunter\n5. Reset Hunter\n6. Exit\nChoice: ");
-        if (scanf("%d", &c) != 1) {
-            printf("Input tidak valid! Masukkan angka.\n");
-            while (getchar() != '\n');
-            continue;
+        printf("\n=============== SYSTEM MENU ===============\n");
+        printf("1. Hunter Info\n");
+        printf("2. Dungeon Info\n");
+        printf("3. Generate Dungeon\n");
+        printf("4. Ban Hunter\n");
+        printf("5. Reset Hunter\n");
+        printf("6. Exit\n");
+        printf("Choice: ");
+        scanf("%d", &c); getchar();
+
+        switch (c) {
+            case 1: show_hunters(); break;
+            case 2: show_dungeons(); break;
+            case 3: generate_dungeon(); break;
+            case 4: ban_hunter(); break;
+            case 5: reset_hunter(); break;
+            case 6: detach_and_cleanup(); return;
+            default: printf("Invalid choice. Please try again.\n");
         }
-        getchar();
-        if (c == 1) show_hunters();
-        else if (c == 2) show_dungeons();
-        else if (c == 3) generate_dungeon();
-        else if (c == 4) ban_hunter();
-        else if (c == 5) reset_hunter();
-        else if (c == 6) break;
-        else printf("Pilihan tidak tersedia. Masukkan angka 1-6.\n");
     }
-    detach_and_cleanup();
 }
 
 int main() {
