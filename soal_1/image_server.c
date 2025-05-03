@@ -13,9 +13,12 @@
 #define MAX_BUFFER 4096
 #define DATABASE_DIR "server/database/"
 #define LOG_FILE "server/server.log"
-#define INPUT_DIR "client/secrets/"  // path baru untuk mencari file input
+#define INPUT_DIR "client/secrets/"
 
-void hex_to_bin(const char *hex, unsigned char *bin, size_t len);
+void hex_to_bin(const char *hex, unsigned char *bin, size_t len) {
+    for (size_t i = 0; i < len; i += 2)
+        sscanf(hex + i, "%2hhx", &bin[i / 2]);
+}
 
 void log_action(const char *source, const char *action, const char *info) {
     time_t now = time(NULL);
@@ -32,91 +35,96 @@ void log_action(const char *source, const char *action, const char *info) {
 }
 
 void handle_client(int client_sock) {
-    char buffer[MAX_BUFFER] = {0};
-    read(client_sock, buffer, MAX_BUFFER);
+    char buffer[MAX_BUFFER];
 
-    if (strncmp(buffer, "DECRYPT", 7) == 0) {
-        char *filename = buffer + 8;
-        log_action("Client", "DECRYPT", filename);
+    while (1) {
+        memset(buffer, 0, MAX_BUFFER);
+        int read_len = read(client_sock, buffer, MAX_BUFFER);
+        if (read_len <= 0) break;
 
-        char path[300];
-        snprintf(path, sizeof(path), "%s%s", INPUT_DIR, filename);  // path ke client/secrets/
+        if (strncmp(buffer, "DECRYPT", 7) == 0) {
+            char *filename = buffer + 8;
+            log_action("Client", "DECRYPT", filename);
 
-        FILE *file = fopen(path, "r");
-        if (!file) {
-            send(client_sock, "ERROR: File not found", 22, 0);
-            log_action("Server", "ERROR", "File not found");
-            return;
+            char path[300];
+            snprintf(path, sizeof(path), "%s%s", INPUT_DIR, filename);
+
+            FILE *file = fopen(path, "r");
+            if (!file) {
+                send(client_sock, "ERROR", 5, 0);
+                log_action("Server", "ERROR", "File not found");
+                continue;
+            }
+
+            fseek(file, 0, SEEK_END);
+            long size = ftell(file);
+            fseek(file, 0, SEEK_SET);
+
+            char *content = malloc(size + 1);
+            fread(content, 1, size, file);
+            fclose(file);
+
+            for (int i = 0; i < size / 2; i++) {
+                char temp = content[i];
+                content[i] = content[size - i - 1];
+                content[size - i - 1] = temp;
+            }
+
+            unsigned char *bin = malloc(size / 2);
+            hex_to_bin(content, bin, size);
+
+            time_t timestamp = time(NULL);
+            char jpeg_name[64];
+            snprintf(jpeg_name, sizeof(jpeg_name), "%ld.jpeg", timestamp);
+
+            mkdir(DATABASE_DIR, 0777);
+            char jpeg_path[300];
+            snprintf(jpeg_path, sizeof(jpeg_path), "%s%s", DATABASE_DIR, jpeg_name);
+            FILE *jpeg = fopen(jpeg_path, "wb");
+            fwrite(bin, 1, size / 2, jpeg);
+            fclose(jpeg);
+
+            send(client_sock, jpeg_name, strlen(jpeg_name), 0);
+            log_action("Server", "SAVE", jpeg_name);
+
+            free(content);
+            free(bin);
         }
 
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
-        fseek(file, 0, SEEK_SET);
+        else if (strncmp(buffer, "DOWNLOAD", 8) == 0) {
+            char *filename = buffer + 9;
+            log_action("Client", "DOWNLOAD", filename);
 
-        char *content = malloc(size + 1);
-        fread(content, 1, size, file);
-        fclose(file);
+            char path[300];
+            snprintf(path, sizeof(path), "%s%s", DATABASE_DIR, filename);
 
-        for (int i = 0; i < size / 2; i++) {
-            char temp = content[i];
-            content[i] = content[size - i - 1];
-            content[size - i - 1] = temp;
+            FILE *file = fopen(path, "rb");
+            if (!file) {
+                send(client_sock, "ERROR", 5, 0);
+                continue;
+            }
+
+            fseek(file, 0, SEEK_END);
+            int size = ftell(file);
+            rewind(file);
+
+            unsigned char *data = malloc(size);
+            fread(data, 1, size, file);
+            fclose(file);
+
+            send(client_sock, &size, sizeof(int), 0);
+            send(client_sock, data, size, 0);
+            log_action("Server", "UPLOAD", filename);
+            free(data);
         }
-
-        unsigned char *bin = malloc(size / 2);
-        hex_to_bin(content, bin, size);
-
-        time_t timestamp = time(NULL);
-        char jpeg_name[64];
-        snprintf(jpeg_name, sizeof(jpeg_name), "%ld.jpeg", timestamp);
-
-        char jpeg_path[100];
-        snprintf(jpeg_path, sizeof(jpeg_path), "%s%s", DATABASE_DIR, jpeg_name);
-        FILE *jpeg = fopen(jpeg_path, "wb");
-        fwrite(bin, 1, size / 2, jpeg);
-        fclose(jpeg);
-
-        send(client_sock, jpeg_name, strlen(jpeg_name), 0);
-        log_action("Server", "SAVE", jpeg_name);
-
-        free(content);
-        free(bin);
-    } else if (strncmp(buffer, "DOWNLOAD", 8) == 0) {
-        char *filename = buffer + 9;
-        log_action("Client", "DOWNLOAD", filename);
-
-        char path[200];
-        snprintf(path, sizeof(path), "%s%s", DATABASE_DIR, filename);
-
-        FILE *file = fopen(path, "rb");
-        if (!file) {
-            send(client_sock, "ERROR: File not found", 22, 0);
-            return;
-        }
-
-        fseek(file, 0, SEEK_END);
-        long size = ftell(file);
-        fseek(file, 0, SEEK_SET);
-
-        unsigned char *data = malloc(size);
-        fread(data, 1, size, file);
-        fclose(file);
-
-        send(client_sock, data, size, 0);
-        log_action("Server", "UPLOAD", filename);
-        free(data);
     }
-}
 
-void hex_to_bin(const char *hex, unsigned char *bin, size_t len) {
-    for (size_t i = 0; i < len; i += 2)
-        sscanf(hex + i, "%2hhx", &bin[i / 2]);
+    close(client_sock);
 }
 
 int main() {
     pid_t pid = fork();
     if (pid > 0) exit(EXIT_SUCCESS);
-
     umask(0);
     setsid();
 
@@ -148,7 +156,6 @@ int main() {
     while (1) {
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen))) {
             handle_client(new_socket);
-            close(new_socket);
         }
     }
 

@@ -31,9 +31,6 @@ void download_file(const char *url, const char *out_filename) {
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         res = curl_easy_perform(curl);
-        if (res != CURLE_OK) {
-            fprintf(stderr, "Download failed: %s\n", curl_easy_strerror(res));
-        }
         fclose(fp);
         curl_easy_cleanup(curl);
     }
@@ -83,12 +80,7 @@ void extract_zip(const char *zip_filename, const char *target_folder) {
     }
 
     zip_close(z);
-}
-
-void download_zip() {
-    download_file(ZIP_URL, TEMP_ZIP);
-    extract_zip(TEMP_ZIP, "client");
-    remove(TEMP_ZIP);
+    remove(zip_filename);
 }
 
 void print_menu() {
@@ -104,82 +96,90 @@ void print_menu() {
 int main() {
     struct stat st = {0};
     if (stat("client/secrets", &st) == -1) {
-        download_zip();
+        download_file(ZIP_URL, TEMP_ZIP);
+        extract_zip(TEMP_ZIP, "client");
     }
 
-    int sock = 0;
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serv_addr;
-
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        printf("\nSocket creation error\n");
-        return -1;
-    }
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
-
-    if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0) {
-        printf("\nInvalid address\n");
-        return -1;
-    }
+    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("\nConnection Failed\n");
+        printf("Connection Failed\n");
         return -1;
     }
 
-    // Cetak alamat IP dan port yang terhubung
-    char ip_str[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &serv_addr.sin_addr, ip_str, sizeof(ip_str));
-    printf("Connected to address %s:%d\n", ip_str, ntohs(serv_addr.sin_port));
-    fflush(stdout);
+    printf("Connected to address 127.0.0.1:%d\n", PORT);
 
     while (1) {
         print_menu();
         printf(">> ");
-
-        int choice;
-        scanf("%d", &choice);
+        char input[16];
+        fgets(input, sizeof(input), stdin);
+        int choice = atoi(input);
 
         if (choice == 3) break;
 
         if (choice == 1) {
             char filename[256];
             printf("Enter the input filename (e.g., input_1.txt): ");
-            scanf("%255s", filename);
+            fgets(filename, sizeof(filename), stdin);
+            filename[strcspn(filename, "\n")] = 0;
 
-            // Kirim hanya nama file ke server
             char command[MAX_BUFFER];
             snprintf(command, sizeof(command), "DECRYPT %s", filename);
             send(sock, command, strlen(command), 0);
 
-            // Terima respons
             char response[MAX_BUFFER] = {0};
             read(sock, response, MAX_BUFFER);
             printf("\nServer: Text decrypted and saved as %s\n", response);
         }
+
         else if (choice == 2) {
             char filename[256];
             printf("Enter the file name: ");
-            scanf("%255s", filename);
+            fgets(filename, sizeof(filename), stdin);
+            filename[strcspn(filename, "\n")] = 0;
 
             char command[MAX_BUFFER];
             snprintf(command, sizeof(command), "DOWNLOAD %s", filename);
             send(sock, command, strlen(command), 0);
 
-            unsigned char buffer[MAX_BUFFER] = {0};
-            read(sock, buffer, MAX_BUFFER);
+            int filesize = 0;
+            int r = recv(sock, &filesize, sizeof(int), MSG_WAITALL);
 
-            if (strncmp((char *)buffer, "ERROR", 5) == 0) {
-                printf("\n%s\n", (char *)buffer);
-            } else {
-                char client_path[300];
-                snprintf(client_path, sizeof(client_path), "client/%s", filename);
-                FILE *file = fopen(client_path, "wb");
-                fwrite(buffer, 1, MAX_BUFFER, file);
-                fclose(file);
-                printf("\nSuccess! Image saved as %s\n", client_path);
+            if (r != sizeof(int) || filesize <= 0 || filesize > 10000000) {
+                continue;
             }
+
+            unsigned char *buffer = malloc(filesize);
+            int received = 0;
+            while (received < filesize) {
+                int n = recv(sock, buffer + received, filesize - received, 0);
+                if (n <= 0) break;
+                received += n;
+            }
+
+            if (received != filesize) {
+                free(buffer);
+                continue;
+            }
+
+            char path[300];
+            snprintf(path, sizeof(path), "client/%s", filename);
+            FILE *out = fopen(path, "wb");
+            fwrite(buffer, 1, filesize, out);
+            fclose(out);
+            free(buffer);
+
+            printf("Success! Image saved as %s\n", filename);
+        }
+
+        else {
+            printf("Invalid option.\n");
         }
     }
 
