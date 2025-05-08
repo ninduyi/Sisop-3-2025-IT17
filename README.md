@@ -212,6 +212,9 @@ int main() {
 
 - **Security/Keamanan:** Menggunakan `malloc` untuk menyimpan soket klien dan `free` untuk mencegah kebocoran memori. Menggunakan `pthread_detach` untuk membersihkan thread setelah selesai. Buffer dibatas dengan `BUFFER_SIZE`(2048) untuk mencegah ***overflow***.
 
+### Tampilan Notifikasi Server
+
+
 ### Soal 3-B
 
 **Sightseeing**
