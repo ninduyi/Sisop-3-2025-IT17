@@ -27,13 +27,53 @@ Karena anda adalah seorang professional programmer, anda mengikuti petunjuk yang
 Text file rahasia terdapat pada [LINK INI](https://drive.google.com/file/d/15mnXpYUimVP1F5Df7qd_Ahbjor3o1cVw/view?usp=sharing), diperbolehkan untuk download/unzip secara manual
 
 ### Penyelesaian A
-aa
+Pada bagian ini, program harus melakukan pengunduhan dan ekstraksi file zip yang berisi file teks rahasia. Pada `image_client.c`, program melakukan pengecekan apakah direktori `client/secrets` ada atau tidak. Jika tidak ada, program akan mengunduh file zip dari URL yang telah diberikan, kemudian mengekstraknya ke dalam folder yang sesuai.
+
+Kode yang digunakan:
+
+```c
+if (stat("client/secrets", &st) == -1) {
+    download_file(ZIP_URL, TEMP_ZIP);
+    extract_zip(TEMP_ZIP, "client");
+}
+```
+Penjelasan:
+
+- stat() digunakan untuk memeriksa apakah direktori client/secrets sudah ada.
+
+- Jika tidak ada, program mengunduh file zip dari URL yang ditentukan (menggunakan download_file()).
+
+- Setelah itu, file zip diekstrak ke dalam folder client dengan menggunakan extract_zip().
 
 ### B. Membuat image_client.c (daemon)
 Pada image_server.c, program yang dibuat harus berjalan secara daemon di background dan terhubung dengan image_client.c melalui socket RPC.
 
 ### Penyelesaian B
-aa
+Pada bagian ini, image_server.c berfungsi sebagai daemon yang berjalan di background, dan image_client.c berfungsi sebagai klien yang terhubung dengan server untuk mengirimkan permintaan.
+
+Pada image_client.c, program melakukan koneksi ke server yang berjalan pada localhost di port 8080. Jika server tidak dapat dijangkau, maka program akan menampilkan pesan kesalahan dan keluar.
+
+Kode yang digunakan:
+
+```c
+int sock = socket(AF_INET, SOCK_STREAM, 0);
+struct sockaddr_in serv_addr;
+serv_addr.sin_family = AF_INET;
+serv_addr.sin_port = htons(PORT);
+inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+
+if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    printf("Failed to connect to server.\n");
+    return -1;
+}
+```
+Penjelasan:
+
+- Program membuat socket untuk komunikasi menggunakan `AF_INET (IPv4)` dan SOCK_STREAM (TCP).
+
+- onnect() digunakan untuk terhubung ke server yang berjalan pada `IP 127.0.0.1` dan` port 8080.`
+
+- Jika koneksi gagal, maka program menampilkan pesan kesalahan dan berhenti.
 
 ### C. Membuat `image_client.c` dan `image_server.c` terhubung
 Program `image_client.c` harus bisa terhubung dengan `image_server.c` dan bisa mengirimkan perintah untuk:
@@ -42,19 +82,74 @@ Program `image_client.c` harus bisa terhubung dengan `image_server.c` dan bisa m
 - **Note: tidak diperbolehkan copy/pindah file, gunakan RPC untuk mengirim data.**
 
 ### Penyelesaian C
-aa
+Pada bagian ini, klien dapat mengirimkan perintah kepada server untuk melakukan dua hal:
+
+1. Decrypt file teks dengan membalik teks dan mendekode dari format hexadecimal, kemudian menyimpan hasilnya dalam bentuk file JPEG.
+
+2. Download file JPEG yang telah disimpan di server.
+
+Untuk mengirimkan perintah ke server, klien mengirimkan string berupa perintah seperti DECRYPT filename atau DOWNLOAD filename, yang kemudian diproses oleh server untuk melakukan tindakan yang sesuai.
+
+Kode yang digunakan:
+```c
+char command[MAX_BUFFER];
+snprintf(command, sizeof(command), "DECRYPT %s", filename);
+send(sock, command, strlen(command), 0);
+```
+Penjelasan:
+
+- Perintah DECRYPT atau DOWNLOAD dikirimkan ke server dengan menggunakan send().
+
+- Server menerima perintah ini dan melakukan tindakan sesuai dengan perintah yang diterima.
+
+- File yang didekripsi akan disimpan dengan nama file yang dihasilkan dari timestamp server, misalnya 1744401282.jpeg.
+
+
 
 ### D. Membuat menu `image_client.c`
 Program i`mage_client.c` harus disajikan dalam bentuk menu kreatif yang memperbolehkan pengguna untuk memasukkan perintah berkali-kali.
 
 ### Penyelesaian D
-aa
+Program image_client.c harus menyediakan menu interaktif yang memungkinkan pengguna memilih aksi yang ingin dilakukan, seperti mengirimkan file teks untuk didekripsi atau mengunduh file JPEG dari server.
+
+Kode yang digunakan:
+```c
+printf("\n================================\n");
+printf("    Image Decoder Client        \n");
+printf("================================\n");
+printf("1. Send input file to server\n");
+printf("2. Download file from server\n");
+printf("3. Exit\n");
+printf("================================\n");
+```
+**Penjelasan**:
+
+- Menu ini disajikan setiap kali program klien dijalankan, memungkinkan pengguna memilih untuk mengirimkan file, mengunduh file, atau keluar.
+
+- Pengguna memasukkan pilihan mereka, dan berdasarkan input tersebut, program akan mengeksekusi perintah yang sesuai.
+
+
 
 ### E. Dapat mengirim text file dan menerima file jpeg
 Program dianggap berhasil bila pengguna dapat mengirimkan text file dan menerima sebuah file jpeg yang dapat dilihat isinya.
 
 ### Penyelesaian E
-aa
+Program dianggap berhasil jika pengguna dapat mengirimkan file teks untuk didekripsi oleh server, kemudian menerima file JPEG hasil dekripsi tersebut.
+
+Kode yang digunakan untuk mengirimkan file dan menerima file:
+```c
+send(sock, command, strlen(command), 0);
+recv(sock, response, MAX_BUFFER, 0);
+```
+**Penjelasan**:
+
+- Klien mengirimkan nama file teks yang ingin didekripsi menggunakan perintah DECRYPT.
+
+- Server mengembalikan nama file JPEG yang telah disimpan.
+
+- Klien kemudian dapat mengunduh file tersebut dengan memberikan nama file yang sesuai kepada server.
+
+
 
 
 ### F. Menangani Error
@@ -66,7 +161,17 @@ Program `image_server.c` diharuskan untuk tidak keluar/terminate saat terjadi er
   - Gagal menemukan file untuk dikirim ke client
 
 ### Penyelesaian F
-aa
+Bagian ini mengharuskan program untuk menangani error dengan baik dan memberikan pesan kesalahan yang sesuai kepada pengguna. Jika koneksi gagal atau file yang diminta tidak ditemukan, server dan klien akan memberikan pesan kesalahan.
+
+Kode yang digunakan:
+```c
+send(client_sock, "ERROR: File not found", 22, 0);
+```
+**Penjelasan**:
+
+- Jika file tidak ditemukan di server, server akan mengirimkan pesan kesalahan ERROR: File not found kepada klien.
+
+- Klien juga menangani kesalahan koneksi dan kesalahan nama file dengan menampilkan pesan kesalahan yang sesuai.
 
 ### G. Menyimpan ke log file
 Server menyimpan log semua percakapan antara image_server.c dan image_client.c di dalam file server.log dengan format:
@@ -85,7 +190,18 @@ Server menyimpan log semua percakapan antara image_server.c dan image_client.c d
 ```
 
 ### Penyelesaian G
-aa
+Program server harus mencatat semua percakapan antara klien dan server dalam file log dengan format tertentu, mencatat setiap aksi yang dilakukan oleh klien dan server.
+
+Kode yang digunakan:
+```c
+log_action("Client", "DECRYPT", filename);
+```
+**Penjelasan**:
+
+- Setiap kali klien mengirimkan perintah, server mencatat aksi tersebut dalam file log (server.log).
+
+- Log ini mencatat sumber aksi (klien atau server), waktu aksi, dan detail informasi terkait (misalnya nama file yang didekripsi atau diunduh).
+
 
 ### Dokumentasi Soal 1
 - Menjalankan `image_server` dan port connect
@@ -1870,17 +1986,82 @@ void ban_hunter() {
 Setelah beberapa pertimbangan, untuk memberikan kesempatan kedua bagi hunter yang ingin bertobat dan memulai dari awal, Sung Jin Woo juga menambahkan fitur di sistem yang membuat dia bisa mengembalikan stats hunter tertentu ke nilai awal. 
 
 ### Penyelesaian J
+#### Penjelasan Umum  
+Fitur reset digunakan oleh admin (melalui sistem `system.c`) untuk mengembalikan statistik seorang hunter ke nilai awal. Ini dilakukan jika hunter ingin memulai kembali dari awal tanpa kehilangan identitasnya di sistem (misalnya, untuk bertobat setelah kalah atau berbuat curang). Namun, status banned hunter tidak diubah oleh fitur ini.
+
+#### Fungsi `reset_hunter()` pada `system.c`
+```c
+void reset_hunter() {
+    char name[NAME_LEN];
+    printf("\nEnter hunter name to reset: ");
+    fgets(name, NAME_LEN, stdin);
+    name[strcspn(name, "\n")] = 0;
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
+            hunters[i].level = 1;
+            hunters[i].exp = 0;
+            hunters[i].atk = 10;
+            hunters[i].hp = 100;
+            hunters[i].def = 5;
+            printf("Stats reset for %s. (Ban status unchanged)\n", name);
+            return;
+        }
+    }
+    printf("Hunter not found.\n");
+}
+```
+- Admin memasukkan nama hunter.
+- Jika hunter ditemukan dan masih aktif (in_use == 1), maka stat hunter di-reset ke nilai default:
+    - Level: 1
+    - EXP: 0
+    - ATK: 10
+    - HP: 100
+    - DEF: 5
+
+- Status banned tidak diubah.
+- Jika nama hunter tidak ditemukan, sistem memberikan pesan “Hunter not found.”
 
 ### K. Fitur notifikasi
 Untuk membuat sistem lebih menarik dan tidak membosankan, Sung Jin Woo menambahkan fitur notifikasi dungeon di setiap hunter. Saat diaktifkan, akan muncul informasi tentang semua dungeon yang terbuka dan akan terus berganti setiap 3 detik.
 
 ### Penyelesaian K
-  
+#### Penjelasan Umum  
+Fitur ini menambahkan sistem notifikasi otomatis di sisi hunter untuk menampilkan dungeon yang tersedia secara bergiliran setiap 3 detik. Notifikasi berjalan pada thread terpisah dan hanya aktif jika pengguna memilih untuk mengaktifkannya melalui menu.
+
+#### Fungsi `notification_loop()`  
+Fungsi ini merupakan thread yang:
+- Menampilkan informasi dungeon secara berkala (tiap 3 detik).
+- Menampilkan hanya satu dungeon pada satu waktu dan bergantian (menggunakan indeks `notif_index`).
+- Hanya berjalan jika:
+  - Notifikasi aktif (`notif_on == 1`)
+  - Tidak sedang dijeda (`notif_paused == 0`)
+  - Hunter sedang login (`me != NULL`)
+- Notifikasi dapat dihentikan atau dijeda ketika hunter berada di menu lain (seperti raid atau battle).
+
+#### Implementasi Thread
+Saat hunter mengaktifkan notifikasi di menu, thread ini dibuat:
+```c
+pthread_create(&notif_thread, NULL, notification_loop, NULL);
+```
+Thread ini akan terus berjalan di background sampai hunter keluar, dan akan dihentikan dengan:
+```c
+pthread_join(notif_thread, NULL);
+```
+
 ### L. Konfigurasi Exit
 Terakhir, untuk menambah keamanan sistem agar data hunter tidak bocor, Sung Jin Woo melakukan konfigurasi agar setiap kali sistem dimatikan, maka semua shared memory yang sedang berjalan juga akan ikut terhapus. 
 
 ### Penyelesaian L
+#### Penjelasan Umum  
+Untuk menjaga integritas sistem dan mencegah kebocoran memori, sistem wajib melakukan pembersihan (cleanup) terhadap seluruh shared memory yang aktif saat program berakhir. Hal ini termasuk shared memory utama (`hunters` dan `dungeons`) maupun shared memory individu yang dibuat untuk masing-masing hunter dan dungeon.
 
+#### Implementasi pada system.c
+Fitur ini diimplementasikan di fungsi `void detach_and_cleanup() `
+
+Fungsi ini dipanggil sebelum keluar dari program (Exit pada menu), memastikan tidak ada segment memory yang tertinggal di sistem setelah program selesai.
+
+Kesimpulan
+Dengan adanya fungsi ini, sistem menjaga kebersihan dan kestabilan resource OS. Semua shared memory akan dihapus saat sistem keluar, baik itu shared memory utama maupun milik hunter dan dungeon secara individual.
 
 ### Dokumentasi soal 4
 
