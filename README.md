@@ -87,6 +87,232 @@ Server menyimpan log semua percakapan antara image_server.c dan image_client.c d
 ### Penyelesaian G
 aa
 
+# Soal 2  
+*Oleh : Balqis Sani Sabillah*
+
+## Deskripsi Soal ## 
+1. Tahun 2025, di tengah era perdagangan serba cepat, berdirilah
+sebuah perusahaan ekspedisi baru bernama RushGo. RushGo ingin
+memberikan layanan ekspedisi terbaik dengan 2 pilihan, Express
+(super cepat) dan Reguler (standar). Namun, pesanan yang masuk
+sangat banyak! Mereka butuh sebuah sistem otomatisasi
+pengiriman, agar agen-agen mereka tidak kewalahan menangani
+pesanan yang terus berdatangan. Kamu ditantang untuk
+membangun Delivery Management System untuk RushGo (Author:
+Nayla / naylaarr)
+Sistem ini terdiri dari dua bagian utama:
+- delivery_agent.c untuk agen otomatis pengantar Express
+- dispatcher.c untuk pengiriman dan monitoring pesanan oleh user
+
+## Soal A ##
+a. Mengunduh File Order dan Menyimpannya ke Shared Memory
+Untuk memulai, Anda perlu mengelola semua orderan yang
+masuk dengan menggunakan shared memory.
+● Unduh file delivery_order.csv
+● Setelah file CSV diunduh, program Anda harus membaca
+seluruh data dari CSV dan menyimpannya ke dalam
+shared memory.
+
+## Jawaban ##
+```  
+void load_csv_to_shared_memory(const char* filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        perror("Failed to open CSV");
+        exit(1);
+    }
+    char line[200];
+    while (fgets(line, sizeof(line), fp)) {
+        if (sscanf(line, "%49[^,],%99[^,],%9s", orders[*order_count].nama, orders[*order_count].alamat, orders[*order_count].jenis) == 3) {
+            orders[*order_count].delivered = 0;
+            orders[*order_count].delivered_by[0] = '\0';
+            (*order_count)++;
+        }
+    }
+    fclose(fp);
+}
+
+```
+
+### Keterangan ###
+``` void load_csv_to_shared_memory(const char* filename) { FILE *fp = fopen(filename, "r")  ``` 
+- Membuka file CSV (`delivery_order.csv`) dalam mode baca.
+- Jika gagal, program akan keluar (`exit(1)`).
+
+```     char line[200]; while (fgets(line, sizeof(line), fp))  ``` 
+
+Membaca file baris demi baris ke dalam variabel `line`.
+
+```         if (sscanf(line, "%49[^,],%99[^,],%9s", orders[*order_count].nama, orders[*order_count].alamat, orders[*order_count].jenis) == 3) { ``` :
+Menggunakan `sscanf` untuk memecah baris CSV menjadi:
+- `nama` (maks 49 karakter)
+- `alamat` (maks 99 karakter)
+- `jenis` (maks 9 karakter)
+Nilai disimpan ke array `orders[*order_count]`
+
+```  orders[*order_count].delivered = 0; orders[*order_count].delivered_by 0 '\0'; ```
+- Menandai bahwa order belum dikirim `(delivered = 0)`
+- Kosongkan `string delivered_by`
+
+```   (*order_count)++; ```
+Tambahkan jumlah order setiap kali satu baris berhasil dimuat
+
+## Soal B ##
+Pengiriman Bertipe Express
+RushGo memiliki tiga agen pengiriman utama: AGENT A, AGENT
+B, dan AGENT C.
+
+- Setiap agen dijalankan sebagai thread terpisah
+- Agen-agen ini akan secara otomatis:
+    - Mencari order bertipe Express yang belum dikirim.
+    - Mengambil dan mengirimkannya tanpa intervensi user.
+
+● Setelah sukses mengantar, program harus mencatat log
+di delivery.log dengan format:
+
+[dd/mm/yyyy hh:mm:ss] [AGENT A/B/C] Express package
+delivered to [Nama] in [Alamat]
+
+## Jawaban ##
+``` const char* agent_names[AGENT_COUNT] = {"AGENT A", "AGENT B", "AGENT C"}; ```
+
+- Mendefinisikan nama tiga agen dan akan digunakan untuk identifikasi dan pencatatan log.
+
+``` typedef struct { int agent_id; const char* agent_name; } AgentArg; ```
+
+- `agent_id` digunakan untuk membagi order secara adil `(misalnya: i % 3 == agent_id)`.
+- `agent_name` digunakan saat mencatat `log`.
+
+```
+ void* agent_thread(void* arg) {
+    AgentArg* agent = (AgentArg*)arg;
+    while (1) {
+        for (int i = 0; i < *order_count; i++) {
+            pthread_mutex_lock(mutex);
+            if (strcmp(orders[i].jenis, "Express") == 0 && !orders[i].delivered && (i % AGENT_COUNT == agent->agent_id)) {
+                orders[i].delivered = 1;
+                strncpy(orders[i].delivered_by, agent->agent_name, NAME_LEN);
+                log_delivery(agent->agent_name, &orders[i]);
+            }
+            pthread_mutex_unlock(mutex);
+        }
+        sleep(1);
+    }
+    return NULL;
+}
+```
+
+Fungsi ini melakukan hal berikut:
+`Loop` terus-menerus mencari order `Express`.
+
+Mengecek apakah:
+
+- Tipe order adalah `"Express"`,
+- Belum dikirim (`!orders[i].delivered`),
+-Order ini tugasnya agen ini (`i % AGENT_COUNT == agent_id`).
+
+Jika ya:
+- Tandai sebagai terkirim (`delivered = 1`),
+- Simpan nama `agen pengirim`,
+- Panggil `log_delivery()`.
+
+## Soal C ##
+Pengiriman Bertipe Reguler
+
+Berbeda dengan Express, untuk order bertipe Reguler,
+pengiriman dilakukan secara manual oleh user.
+
+● User dapat mengirim permintaan untuk mengantar order
+Reguler dengan memberikan perintah deliver dari
+dispatcher.
+Penggunaan:
+./dispatcher -deliver [Nama]
+
+● Pengiriman dilakukan oleh agent baru yang namanya
+adalah nama user.
+
+● Setelah sukses mengantar, program harus mencatat log
+di delivery.log dengan format:
+
+[dd/mm/yyyy hh:mm:ss] [AGENT <user>] Reguler package
+delivered to [Nama] in [Alamat]
+
+## Jawaban ##
+``` void deliver_manual(const char* name, const char* user) {
+    for (int i = 0; i < *order_count; i++) {
+        if (strcmp(orders[i].nama, name) == 0 && strcmp(orders[i].jenis, "Reguler") == 0 && !orders[i].delivered) {
+            pthread_mutex_lock(mutex);
+            orders[i].delivered = 1;
+            strncpy(orders[i].delivered_by, user, NAME_LEN);
+            log_delivery(user, &orders[i], "Reguler");
+            pthread_mutex_unlock(mutex);
+            printf("Delivered Reguler order for %s by %s\n", name, user);
+            return;
+        }
+    }
+    printf("No pending Reguler order found for %s\n", name);
+}
+```
+- Mencari order berdasarkan nama penerima dan tipe `"Reguler"`.
+- Jika belum dikirim (`!orders[i].delivered`), maka:
+- Tandai sebagai `delivered = 1`,
+- Simpan nama pengirim `(user)`,
+- Panggil `log_delivery()` dengan jenis `"Reguler"`.
+
+## Soal D ##
+Mengecek Status Pesanan
+Dispatcher juga harus bisa mengecek status setiap pesanan.
+
+Penggunaan:
+./dispatcher -status [Nama]
+
+- Contoh:
+Status for Valin: Delivered by Agent C
+Status for Novi: Pending
+
+## Jawaban ##
+```
+void check_status(const char* name) {
+    for (int i = 0; i < *order_count; i++) {
+        if (strcmp(orders[i].nama, name) == 0) {
+            if (orders[i].delivered)
+                printf("Status for %s: Delivered by %s\n", name, orders[i].delivered_by);
+            else
+                printf("Status for %s: Pending\n", name);
+            return;
+        }
+    }
+    printf("No order found for %s\n", name);
+}
+```
+Fungsi ini melakukan iterasi melalui semua pesanan yang ada di shared memory.
+
+Jika ditemukan pesanan dengan nama penerima yang sesuai:
+
+- Jika `delivered` bernilai `1`, maka akan mencetak bahwa pesanan telah dikirim oleh agen tertentu.
+- Jika `delivered` bernilai `0`, maka akan mencetak bahwa pesanan masih pending.
+- Jika tidak ditemukan pesanan dengan nama tersebut, akan mencetak bahwa tidak ada pesanan yang ditemukan.
+
+## Soal E ##
+```
+void list_orders() {
+    for (int i = 0; i < *order_count; i++) {
+        printf("%s - %s\n", orders[i].nama, orders[i].delivered ? orders[i].delivered_by : "Pending");
+    }
+}
+``` 
+Fungsi ini akan mencetak setiap pesanan yang ada di shared memory.
+
+Untuk setiap order:
+
+- Menampilkan nama penerima `(orders[i].nama)`.
+- Menampilkan status:
+    Jika `orders[i].delivered == 1`, maka ditampilkan siapa yang mengantar `(orders[i].delivered_by)`.
+
+Jika belum dikirim, akan tertulis `"Pending"`.
+
+
+
 # Soal 3
 _**Oleh : Muhammad Khairul Yahya**_
 
