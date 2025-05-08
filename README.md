@@ -490,15 +490,19 @@ int main() {
 ### Tampilan Notifikasi Server
 
 - **Untuk Notifikasi Server sedang berjalan:**
+  
   ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142309.png)
 
 - **Saat ada klien yang menggunakan game Dungeon:**
+  
   ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142334.png)
 
 - **Notifikasi server terhubung dari sudut pandang klien:**
+  
   ![iamge alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142344.png)
 
 - **Notifikasi jika klien (lebih dari 1) menggunakan game Dungeon:**
+  
   ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142411.png)
 
 ### Soal 3-B
@@ -1014,6 +1018,14 @@ void apply_passive(Player *player, Enemy *enemy, char *buffer) {
 **3. Efek menambah Critical Damage dari Es Krim Choco Minto:3**
 
 ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20143019.png)
+
+**4. Efek menambah Critical Damage dari Tongkat Cherybelle:**
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/4399ec3676b191e4b1677ae010a0fab39b51678c/assets/Screenshot%202025-05-08%20143106.png)
+
+**5. Efek menambah Stun Chance dari Senapan Lantak Andriana:**
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/4399ec3676b191e4b1677ae010a0fab39b51678c/assets/Screenshot%202025-05-08%20143132.png)
   
 ### Soal 3-H
 
@@ -1076,7 +1088,13 @@ void process_command(Player *player, char *command, int client_sock) {
 
 ### Dokumentasi Error Handling:
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/4399ec3676b191e4b1677ae010a0fab39b51678c/assets/Screenshot%202025-05-08%20143210.png)
 
+### Dokumentasi tambahan, Exit the game:
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/4399ec3676b191e4b1677ae010a0fab39b51678c/assets/Screenshot%202025-05-08%20143220.png)
+
+- Saat user/klien menginput opsi "5", maka akan keluar pesan "Kamu keluar dari dungeon. Sampai jumpa!" lalu menghentikan program untuk `dungeon.c`
 
 # Soal 4
 _**Oleh : Nabilah Anindya Paramesti**_
