@@ -188,6 +188,9 @@ Nilai disimpan ke array `orders[*order_count]`
 ```   (*order_count)++; ```
 Tambahkan jumlah order setiap kali satu baris berhasil dimuat
 
+## Dokumentasi Soal A ##
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/334cf0b5e7fa50173695ffe5c4d3b6b128f8cbe9/assets/A.jpg)
+
 ## Soal B ##
 Pengiriman Bertipe Express
 RushGo memiliki tiga agen pengiriman utama: AGENT A, AGENT
@@ -247,6 +250,10 @@ Jika ya:
 - Simpan nama `agen pengirim`,
 - Panggil `log_delivery()`.
 
+## Dokumentasi Soal B ##
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/334cf0b5e7fa50173695ffe5c4d3b6b128f8cbe9/assets/B.jpg)
+
 ## Soal C ##
 Pengiriman Bertipe Reguler
 
@@ -290,6 +297,11 @@ delivered to [Nama] in [Alamat]
 - Simpan nama pengirim `(user)`,
 - Panggil `log_delivery()` dengan jenis `"Reguler"`.
 
+## Dokumentasi Soal C ##
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/334cf0b5e7fa50173695ffe5c4d3b6b128f8cbe9/assets/C.jpg)
+
+
 ## Soal D ##
 Mengecek Status Pesanan
 Dispatcher juga harus bisa mengecek status setiap pesanan.
@@ -324,6 +336,10 @@ Jika ditemukan pesanan dengan nama penerima yang sesuai:
 - Jika `delivered` bernilai `0`, maka akan mencetak bahwa pesanan masih pending.
 - Jika tidak ditemukan pesanan dengan nama tersebut, akan mencetak bahwa tidak ada pesanan yang ditemukan.
 
+## Dokumentasi Soal D ##
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/334cf0b5e7fa50173695ffe5c4d3b6b128f8cbe9/assets/D.jpg)
+
 ## Soal E ##
 ```
 void list_orders() {
@@ -342,7 +358,9 @@ Untuk setiap order:
 
 Jika belum dikirim, akan tertulis `"Pending"`.
 
+## Dokumentasi Soal E ##
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/334cf0b5e7fa50173695ffe5c4d3b6b128f8cbe9/assets/E.jpg)
 
 # Soal 3
 _**Oleh : Muhammad Khairul Yahya**_
