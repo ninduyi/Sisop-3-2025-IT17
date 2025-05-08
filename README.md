@@ -214,6 +214,17 @@ int main() {
 
 ### Tampilan Notifikasi Server
 
+- **Untuk Notifikasi Server sedang berjalan:**
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142309.png)
+
+- **Saat ada klien yang menggunakan game Dungeon:**
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142334.png)
+
+- **Notifikasi server terhubung dari sudut pandang klien:**
+  ![iamge alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142344.png)
+
+- **Notifikasi jika klien (lebih dari 1) menggunakan game Dungeon:**
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/59abbedfc0b216bfc57bc7d93e1d485384784ea4/assets/Screenshot%202025-05-08%20142411.png)
 
 ### Soal 3-B
 
@@ -290,6 +301,7 @@ int main() {
 
 ### Tampilan Main Menu:
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-03%20132814.png)
 
 ### Soal 3-C:
 
@@ -338,6 +350,9 @@ void show_player_stats(Player *player, char *buffer) {
 
 ### Menu Status Check untuk Opsi 1:
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142439.png)
+
+- Ini merupakan tampilan awal pemain sebelum grinding gold.
 
 ### Soal 3-D:
 
@@ -435,6 +450,9 @@ Mengembalikan:
 
 ### Tampilan Shop:
 
+- Ini merupakan list-list senjata yang dijual di **Weapon Shop:**
+
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142529.png)
 
 ### Soal 3-E
 
@@ -453,11 +471,7 @@ Lalu apabila opsi Show Player Stats dipilih saat menggunakan weapon maka Base Da
 
 - **Tampilan Inventaris:** Menampilkan senjata dengan indeks (1–n), nama, damage, dan pasif. Senjata yang sedang digunakan ditandai dengan tanda bintang (*).
 
-
-
 - **Equip Senjata:** Pemain memasukkan indeks senjata untuk mengaktifkannya, memperbarui `equipped_weapon_index.` Input kosong (Enter) kembali ke menu utama.
-
-
 
 - **Integrasi dengan Status:** Opsi "Show Player Stats" menampilkan base damage dan pasif dari senjata yang sedang digunakan.
 
@@ -514,7 +528,16 @@ Tanda bintang (*) menunjukkan senjata aktif. Warna merah untuk damage dan cyan u
 
 ### Tampilan Inventory Player:
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142742.png)
 
+- **Penjelasan:**
+1. Masukkan angka untuk menequip senjata yang ada di dalam inventory player.
+2. klik enter untuk kembali ke menu.
+
+- **Jika yang diequip memiliki passive, maka tampilannya akan seperti ini:**
+- 
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142804.png)
+  
 ### Soal 3-F
 
 **Enemy Encounter**
@@ -607,7 +630,16 @@ void battle_mode(Player *player, char *buffer, const char *command) {
 
 ### Contoh tampilan battle dimulai:
 
+- **Contoh gameplay untuk Battle Mode:**
 
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142834.png)
+
+**Penjelasan:**
+
+1. Untuk attack akan memunculkan berapa damage yang diterima oleh musuh.
+2. Untuk senjata yang memiliki pasif maka akan ada pesan yang mengindikasikan passive nya aktif saat command menyerah dari user/klien.
+3. Ketika sudah membunuh/memenangkan pertarungan, maka akan ada reward berupa gold.
+4. Namun saat selesai membunuh/memenangkan 1 pertarungan, maka musuh akan muncul lagi.
 
 ### Soal 3-G
 
@@ -691,7 +723,23 @@ void apply_passive(Player *player, Enemy *enemy, char *buffer) {
 
 ### Tampilan Battle untuk Logic-nya:
 
+- **Untuk Damage Equation:**
+  ![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142906.png)
 
+- **Untuk efek passive dan pesannya:**
+
+**1. Efek pasif poisoned dari Keris Hitam Pujo:**
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142920.png)
+
+**2. Efek instant kill dari AK47:**
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20142953.png)
+
+**3. Efek menambah Critical Damage dari Es Krim Choco Minto:3**
+
+![image alt](https://github.com/ninduyi/Sisop-3-2025-IT17/blob/9150c4fcd443ee1b52bc9587a96f6fcd68e6038c/assets/Screenshot%202025-05-08%20143019.png)
+  
 ### Soal 3-H
 
 **Error Handling**
