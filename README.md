@@ -100,6 +100,24 @@ aa
 
 ![](assets/1d.png)
 
+- Decrypt dan download serta upload
+
+![](assets/1e.png)
+
+![](assets/1f.png)
+
+- Gambar berhasil ter-decrypt dan tampil
+
+![](assets/1g.png)
+
+![](assets/1h.png)
+
+- Exit Menu
+
+![](assets/1i.png)
+
+![](assets/1j.png)
+
 # Soal 2  
 *Oleh : Balqis Sani Sabillah*
 
@@ -1828,3 +1846,66 @@ Terakhir, untuk menambah keamanan sistem agar data hunter tidak bocor, Sung Jin 
 ### Penyelesaian L
 
 
+### Dokumentasi soal 4
+
+- Hunter tidak bisa jalan jika sistem belum jalan
+
+![](assets/4a.png)
+
+- Menjalankan hunter dan system
+
+![](assets/4b.png)
+
+![](assets/4c.png)
+
+- Fitur generate dungeon
+
+![](assets/4d.png)
+
+![](assets/4e.png)
+
+- Fitur registrasi dan login
+
+![](assets/4f.png)
+
+![](assets/4g.png)
+
+- Fitur available dan Raid dungeon
+
+![](assets/4h.png)
+
+![](assets/4i.png)
+
+![](assets/4j.png)
+
+- Fitur battle
+
+![](assets/4k.png)
+
+![](assets/4l.png)
+
+- Fitur notifikasi
+
+![](assets/4m.png)
+
+- Fitur Banned
+
+![](assets/4n.png)
+
+![](assets/4o.png)
+
+![](assets/4p.png)
+
+![](assets/4q.png)
+
+- Fitur Reset
+
+![](assets/4r.png)
+
+- Shared memory waktu exit
+
+![](assets/4s.png)
+
+![](assets/4t.png)
+
+![](assets/4u.png)
