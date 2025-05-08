@@ -16,12 +16,13 @@ typedef struct {
     int level, exp, atk, hp, def;
     int banned;
     int in_use;
+    long key;  // key untuk shared memory hunter (key unik per hunter)
 } Hunter;
 
 typedef struct {
     char name[NAME_LEN];
     int min_level, exp_reward, atk_reward, hp_reward, def_reward;
-    long key;
+    long key;  // key untuk shared memory dungeon (key unik per dungeon)
     int in_use;
 } Dungeon;
 
@@ -38,6 +39,15 @@ int notif_paused = 0;
 int notif_thread_running = 0;
 pthread_t notif_thread;
 int notif_index = 0;
+
+int shmid_hunter, shmid_dungeon;  // Global shared memory IDs
+
+const char *dungeon_names[] = {
+    "Double Dungeon", "Demon Castle", "Pyramid Dungeon", "Red Gate Dungeon",
+    "Hunters Guild Dungeon", "Busan A-Rank Dungeon", "Insects Dungeon",
+    "Goblins Dungeon", "D-Rank Dungeon", "Gwanak Mountain Dungeon",
+    "Demon King", "Dragon's Lair", "Underground Dungeon"
+};
 
 void press_enter() {
     printf("\nPress enter to continue...");
@@ -79,37 +89,87 @@ void *notification_loop(void *arg) {
 }
 
 void attach_shm() {
-    int shm_id_h = shmget(SHM_KEY_HUNTER, sizeof(Hunter) * MAX_HUNTERS, 0666);
-    int shm_id_d = shmget(SHM_KEY_DUNGEON, sizeof(Dungeon) * MAX_DUNGEONS, 0666);
-    if (shm_id_h == -1 || shm_id_d == -1) {
+    shmid_hunter = shmget(SHM_KEY_HUNTER, sizeof(Hunter) * MAX_HUNTERS, 0666);
+    shmid_dungeon = shmget(SHM_KEY_DUNGEON, sizeof(Dungeon) * MAX_DUNGEONS, 0666);
+    if (shmid_hunter == -1 || shmid_dungeon == -1) {
         printf("[ERROR] Sistem belum dijalankan. Jalankan system.c terlebih dahulu.\n");
         exit(1);
     }
-    hunters = shmat(shm_id_h, NULL, 0);
-    dungeons = shmat(shm_id_d, NULL, 0);
+    hunters = shmat(shmid_hunter, NULL, 0);
+    dungeons = shmat(shmid_dungeon, NULL, 0);
+}
+
+void detach_and_cleanup() {
+    // Detach shared memory hunters and dungeons
+    shmdt(hunters);
+    shmdt(dungeons);
+
+    // Menghapus shared memory dungeon dan hunter setelah selesai
+    if (shmctl(shmid_hunter, IPC_RMID, NULL) == -1) {
+        perror("Failed to remove shared memory for hunters");
+    } else {
+        printf("Hunter shared memory removed.\n");
+    }
+
+    if (shmctl(shmid_dungeon, IPC_RMID, NULL) == -1) {
+        perror("Failed to remove shared memory for dungeons");
+    } else {
+        printf("Dungeon shared memory removed.\n");
+    }
+
+    printf("All shared memory cleaned up and system is shutting down.\n");
 }
 
 void register_hunter() {
     char name[NAME_LEN];
     printf("Username: "); fgets(name, NAME_LEN, stdin); name[strcspn(name, "\n")] = 0;
+
+    // Generate unique key for the hunter
+    long key = time(NULL) + rand();  // Create a unique key based on time and random value
+
+    // Membuat shared memory baru untuk hunter
+    int shm_id = shmget(key, sizeof(Hunter), IPC_CREAT | 0666);
+    if (shm_id == -1) {
+        perror("Failed to create shared memory for hunter");
+        return;
+    }
+
+    Hunter *new_hunter = shmat(shm_id, NULL, 0);
+    if (new_hunter == (void *) -1) {
+        perror("Failed to attach shared memory for hunter");
+        return;
+    }
+
+    // Mengisi data hunter baru
+    strcpy(new_hunter->name, name);
+    new_hunter->level = 1;
+    new_hunter->exp = 0;
+    new_hunter->atk = 10;
+    new_hunter->hp = 100;
+    new_hunter->def = 5;
+    new_hunter->banned = 0;
+    new_hunter->in_use = 1;
+    new_hunter->key = key;  // Menyimpan key untuk shared memory
+
+    // Menambahkan hunter ke shared memory utama
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (!hunters[i].in_use) {
-            strcpy(hunters[i].name, name);
-            hunters[i].level = 1; hunters[i].exp = 0; hunters[i].atk = 10;
-            hunters[i].hp = 100; hunters[i].def = 5; hunters[i].banned = 0;
-            hunters[i].in_use = 1;
-            printf("Registration success!\n");
+            hunters[i] = *new_hunter;
+            printf("Hunter registration success!\n");
             press_enter();
             return;
         }
     }
-    printf("Registration failed.\n");
+
+    printf("Hunter registration failed.\n");
     press_enter();
+    shmdt(new_hunter); // Melepaskan shared memory setelah selesai
 }
 
 int login_hunter() {
     char name[NAME_LEN];
     printf("Username: "); fgets(name, NAME_LEN, stdin); name[strcspn(name, "\n")] = 0;
+
     for (int i = 0; i < MAX_HUNTERS; i++) {
         if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
             me = &hunters[i];
@@ -172,7 +232,10 @@ void raid_dungeon() {
         return;
     }
 
+    // Akses shared memory dungeon yang dipilih
     Dungeon *d = &dungeons[idx_map[ch - 1]];
+
+    // Raid sukses dan mendapatkan rewards
     printf("\nRaid success! Gained:\n");
     printf("ATK: %d\nHP: %d\nDEF: %d\nEXP: %d\n", d->atk_reward, d->hp_reward, d->def_reward, d->exp_reward);
 
@@ -182,7 +245,29 @@ void raid_dungeon() {
     me->exp += d->exp_reward;
     if (me->exp >= 500) { me->level++; me->exp = 0; }
 
+    // Dungeon yang telah selesai di-raid tidak bisa digunakan lagi
     d->in_use = 0;
+
+    // Menghapus shared memory dungeon setelah selesai
+    int shm_id = shmget(d->key, sizeof(Dungeon), 0666);
+    if (shm_id != -1) {
+        printf("Shmid for dungeon %ld: %d\n", d->key, shm_id);
+        
+        // Detach shared memory dungeon
+        if (shmdt(d) == -1) {
+            perror("Failed to detach shared memory for dungeon");
+        } else {
+            printf("Dungeon shared memory detached.\n");
+        }
+
+        // Hapus shared memory
+        if (shmctl(shm_id, IPC_RMID, NULL) == -1) {
+            perror("Failed to remove shared memory for dungeon");
+        } else {
+            printf("Dungeon's shared memory removed successfully.\n");
+        }
+    }
+
     press_enter();
     notif_paused = 0;
 }
@@ -228,12 +313,28 @@ void battle() {
                 me->hp += op->hp;
                 me->def += op->def;
                 op->in_use = 0;
+
+                // Menghapus shared memory untuk hunter yang kalah
+                int shm_id = shmget(op->key, sizeof(Hunter), 0666);
+                if (shm_id != -1) {
+                    shmctl(shm_id, IPC_RMID, NULL);
+                    printf("Opponent's shared memory removed.\n");
+                }
+
                 printf("Battle won! You acquired %s's stats\n", op->name);
             } else {
                 op->atk += me->atk;
                 op->hp += me->hp;
                 op->def += me->def;
                 me->in_use = 0;
+
+                // Menghapus shared memory untuk hunter yang kalah
+                int shm_id = shmget(me->key, sizeof(Hunter), 0666);
+                if (shm_id != -1) {
+                    shmctl(shm_id, IPC_RMID, NULL);
+                    printf("Your shared memory removed.\n");
+                }
+
                 printf("You lost. Eliminated.\n");
             }
             press_enter();

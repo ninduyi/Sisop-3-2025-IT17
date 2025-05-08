@@ -15,12 +15,13 @@ typedef struct {
     int level, exp, atk, hp, def;
     int banned;
     int in_use;
+    long key;  // key untuk shared memory hunter (key unik per hunter)
 } Hunter;
 
 typedef struct {
     char name[NAME_LEN];
     int min_level, exp_reward, atk_reward, hp_reward, def_reward;
-    long key;
+    long key;  // key untuk shared memory dungeon (key unik per dungeon)
     int in_use;
 } Dungeon;
 
@@ -38,6 +39,7 @@ const char *dungeon_names[] = {
     "Demon King", "Dragon's Lair", "Underground Dungeon"
 };
 
+// Attach shared memory for hunters and dungeons
 void attach_shared_memory() {
     shmid_hunter = shmget(SHM_KEY_HUNTER, sizeof(Hunter) * MAX_HUNTERS, IPC_CREAT | 0666);
     shmid_dungeon = shmget(SHM_KEY_DUNGEON, sizeof(Dungeon) * MAX_DUNGEONS, IPC_CREAT | 0666);
@@ -45,14 +47,40 @@ void attach_shared_memory() {
     dungeons = (Dungeon *)shmat(shmid_dungeon, NULL, 0);
 }
 
+// Detach and clean up shared memory when done
 void detach_and_cleanup() {
+    // Hapus shared memory individual hunter
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use) {
+            int shm_id = shmget(hunters[i].key, sizeof(Hunter), 0666);
+            if (shm_id != -1) {
+                shmctl(shm_id, IPC_RMID, NULL);
+            }
+        }
+    }
+
+    // Hapus shared memory individual dungeon
+    for (int i = 0; i < MAX_DUNGEONS; i++) {
+        if (dungeons[i].in_use) {
+            int shm_id = shmget(dungeons[i].key, sizeof(Dungeon), 0666);
+            if (shm_id != -1) {
+                shmctl(shm_id, IPC_RMID, NULL);
+            }
+        }
+    }
+
+    // Detach dan hapus shared memory utama
     shmdt(hunters);
     shmdt(dungeons);
+
     shmctl(shmid_hunter, IPC_RMID, NULL);
     shmctl(shmid_dungeon, IPC_RMID, NULL);
-    printf("Shared memory deleted. Exiting system.\n");
+
+    printf("Semua shared memory telah dihapus. Exiting system.\n");
 }
 
+
+// Display all hunters' information
 void show_hunters() {
     printf("\n================================ HUNTER INFO ================================\n");
     printf("| %-3s | %-20s | %-5s | %-5s | %-5s | %-5s | %-5s | %-8s |\n",
@@ -71,6 +99,7 @@ void show_hunters() {
     printf("===============================================================================\n");
 }
 
+// Display all dungeons' information
 void show_dungeons() {
     printf("\n==================================== DUNGEON INFO ====================================\n");
     printf("| %-3s | %-25s | %-10s | %-5s | %-5s | %-5s | %-12s |\n",
@@ -89,27 +118,51 @@ void show_dungeons() {
     printf("======================================================================================\n");
 }
 
+// Generate a new dungeon and assign a unique key
 void generate_dungeon() {
     for (int i = 0; i < MAX_DUNGEONS; i++) {
         if (!dungeons[i].in_use) {
-            Dungeon *d = &dungeons[i];
-            d->in_use = 1;
-            strncpy(d->name, dungeon_names[rand() % 11], NAME_LEN);
-            d->min_level = rand() % 5 + 1;
-            d->atk_reward = rand() % 51 + 100;
-            d->hp_reward = rand() % 51 + 50;
-            d->def_reward = rand() % 26 + 25;
-            d->exp_reward = rand() % 151 + 150;
-            d->key = time(NULL) + rand();
-            printf("\nDungeon generated!\n");
-            printf("Name           : %s\n", d->name);
-            printf("Minimum Level  : %d\n", d->min_level);
+            // Generate a unique key for the dungeon using time or random value
+            long key = time(NULL) + rand();  // Create a unique key based on time and random value
+
+            // Create unique shared memory for each dungeon
+            int shm_id = shmget(key, sizeof(Dungeon), IPC_CREAT | 0666);
+            if (shm_id == -1) {
+                perror("Failed to create shared memory for dungeon");
+                return;
+            }
+
+            Dungeon *new_dungeon = shmat(shm_id, NULL, 0);
+            if (new_dungeon == (void *) -1) {
+                perror("Failed to attach shared memory for dungeon");
+                return;
+            }
+
+            // Fill the dungeon data with unique attributes
+            new_dungeon->in_use = 1;
+            strncpy(new_dungeon->name, dungeon_names[rand() % 13], NAME_LEN);
+            new_dungeon->min_level = rand() % 5 + 1;
+            new_dungeon->atk_reward = rand() % 51 + 100;
+            new_dungeon->hp_reward = rand() % 51 + 50;
+            new_dungeon->def_reward = rand() % 26 + 25;
+            new_dungeon->exp_reward = rand() % 151 + 150;
+            new_dungeon->key = key;  // Assign a unique key for the dungeon
+
+            // Add dungeon to the main list of dungeons
+            dungeons[i] = *new_dungeon;
+
+            printf("\nDungeon generated and added to system:\n");
+            printf("Name           : %s\n", new_dungeon->name);
+            printf("Minimum Level  : %d\n", new_dungeon->min_level);
+
+            shmdt(new_dungeon); // Detach shared memory after finishing
             return;
         }
     }
     printf("Dungeon memory full.\n");
 }
 
+// Ban or unban a hunter
 void ban_hunter() {
     int choice;
     char name[NAME_LEN];
@@ -147,6 +200,7 @@ void ban_hunter() {
     printf("Hunter not found.\n");
 }
 
+// Reset hunter stats
 void reset_hunter() {
     char name[NAME_LEN];
     printf("\nEnter hunter name to reset: ");
@@ -167,6 +221,7 @@ void reset_hunter() {
     printf("Hunter not found.\n");
 }
 
+// Menu for the system
 void menu() {
     int c;
     while (1) {

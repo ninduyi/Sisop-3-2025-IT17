@@ -44,17 +44,21 @@ void handle_client(int client_sock) {
 
         if (strncmp(buffer, "DECRYPT", 7) == 0) {
             char *filename = buffer + 8;
-            log_action("Client", "DECRYPT", filename);
 
+            // Cek jika file ditemukan, hanya log jika file ada
             char path[300];
             snprintf(path, sizeof(path), "%s%s", INPUT_DIR, filename);
 
             FILE *file = fopen(path, "r");
             if (!file) {
-                send(client_sock, "ERROR", 5, 0);
-                log_action("Server", "ERROR", "File not found");
-                continue;
+                // Kirim pesan error jika file tidak ditemukan dan tidak log
+                send(client_sock, "ERROR: File not found", 22, 0);
+                printf("Salah nama text file input\n");
+                continue;  // Tidak lanjutkan jika file tidak ditemukan
             }
+
+            // Log hanya jika file ditemukan
+            log_action("Client", "DECRYPT", filename);
 
             fseek(file, 0, SEEK_END);
             long size = ftell(file);
@@ -93,16 +97,20 @@ void handle_client(int client_sock) {
 
         else if (strncmp(buffer, "DOWNLOAD", 8) == 0) {
             char *filename = buffer + 9;
-            log_action("Client", "DOWNLOAD", filename);
 
+            // Jangan log jika file tidak ditemukan
             char path[300];
             snprintf(path, sizeof(path), "%s%s", DATABASE_DIR, filename);
 
             FILE *file = fopen(path, "rb");
             if (!file) {
-                send(client_sock, "ERROR", 5, 0);
-                continue;
+                send(client_sock, "ERROR: File not found", 22, 0);  // Kirim error message
+                printf("Gagal menemukan file untuk dikirim ke client\n");
+                continue;  // Jangan lanjutkan jika file tidak ditemukan, tidak log aktivitas
             }
+
+            // Log hanya jika file ditemukan
+            log_action("Client", "DOWNLOAD", filename);
 
             fseek(file, 0, SEEK_END);
             int size = ftell(file);
@@ -116,6 +124,12 @@ void handle_client(int client_sock) {
             send(client_sock, data, size, 0);
             log_action("Server", "UPLOAD", filename);
             free(data);
+        }
+
+        // Menangani Exit
+        else if (strncmp(buffer, "Client requested to exit", 24) == 0) {
+            log_action("Client", "EXIT", "Client requested to exit");
+            break;  // Keluar dari loop jika client memilih untuk exit
         }
     }
 

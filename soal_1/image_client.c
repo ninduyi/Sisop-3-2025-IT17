@@ -108,7 +108,7 @@ int main() {
     inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
 
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        printf("Connection Failed\n");
+        printf("Failed to connect to server.\n");
         return -1;
     }
 
@@ -121,7 +121,11 @@ int main() {
         fgets(input, sizeof(input), stdin);
         int choice = atoi(input);
 
-        if (choice == 3) break;
+        if (choice == 3) {
+            char exit_msg[MAX_BUFFER] = "Client requested to exit";
+            send(sock, exit_msg, strlen(exit_msg), 0);
+            break;
+        }
 
         if (choice == 1) {
             char filename[256];
@@ -135,7 +139,12 @@ int main() {
 
             char response[MAX_BUFFER] = {0};
             read(sock, response, MAX_BUFFER);
-            printf("\nServer: Text decrypted and saved as %s\n", response);
+
+            if (strcmp(response, "ERROR: File not found") == 0) {
+                printf("File not found.\n");
+            } else {
+                printf("\nServer: Text decrypted and saved as %s\n", response);
+            }
         }
 
         else if (choice == 2) {
@@ -152,6 +161,7 @@ int main() {
             int r = recv(sock, &filesize, sizeof(int), MSG_WAITALL);
 
             if (r != sizeof(int) || filesize <= 0 || filesize > 10000000) {
+                printf("File not found.\n");
                 continue;
             }
 

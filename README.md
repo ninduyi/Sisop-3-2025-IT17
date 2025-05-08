@@ -92,7 +92,80 @@ aa
 _**Oleh : Nabilah Anindya Paramesti**_
 
 ## Deskripsi Soal
-
+Sung Jin Woo mengalami reinkarnasi dan sekarang bekerja sebagai seorang admin. Uniknya, pekerjaan ini mempunyai sebuah sistem yang bisa melakukan tracking pada seluruh aktivitas dan keadaan seseorang. Sayangnya, model yang diberikan oleh Bos-nya sudah sangat tua sehingga program tersebut harus dimodifikasi agar tidak ketinggalan zaman, dengan spesifikasi
 
 ## Jawaban
-### A.
+### A. Membuat `system.c` dan `hunter.c`
+Agar hunter lain tidak bingung, Sung Jin Woo memutuskan untuk membuat dua file, yaitu `system.c` dan `hunter.c`. Sung Jin Woo mendapat peringatan bahwa `system.c` merupakan shared memory utama yang mengelola shared memory hunter-hunter dari `hunter.c`. Untuk mempermudahkan pekerjaannya, Sung Jin Woo mendapat sebuah [clue](https://drive.google.com/file/d/1E3tRDQ4xkSzs3sY3GT8gKb77iEfhOvZs/view?usp=sharing) yang dapat membuat pekerjaannya menjadi lebih mudah dan efisien. 
+
+**NOTE : hunter bisa dijalankan ketika sistem sudah dijalankan.**
+
+### Penyelesaian A
+
+### B. Menambah fitur registrasi dan login di program hunter
+Untuk memastikan keteraturan sistem, Sung Jin Woo memutuskan untuk membuat fitur registrasi dan login di program hunter. Setiap hunter akan memiliki key unik dan stats awal (Level=1, EXP=0, ATK=10, HP=100, DEF=5). Data hunter disimpan dalam shared memory tersendiri yang terhubung dengan sistem.
+
+### Penyelesaian B
+
+### C. Fitur yang menampilkan informasi semua hunter (sistem)
+Agar dapat memantau perkembangan para hunter dengan mudah, Sung Jin Woo menambahkan fitur di sistem yang dapat menampilkan informasi semua hunter yang terdaftar, termasuk nama hunter, level, exp, atk, hp, def, dan status (banned atau tidak). Ini membuat dia dapat melihat siapa hunter terkuat dan siapa yang mungkin melakukan kecurangan.
+
+### Penyelesaian C
+
+### D. Fitur dalam sistem yang bisa menghasilkan dungeon secara random
+Setelah beberapa hari bekerja, Sung Jin Woo menyadari bahwa para hunter membutuhkan tempat untuk berlatih dan memperoleh pengalaman. Ia memutuskan untuk membuat fitur unik dalam sistem yang dapat menghasilkan dungeon secara random dengan nama, level minimal hunter, dan stat rewards dengan nilai:
+- 🏆Level Minimal : 1 - 5
+- ⚔️ATK : 100 - 150 Poin
+- ❤️HP  : 50 - 100 Poin
+- 🛡️DEF : 25 - 50 Poin
+- 🌟EXP : 150 - 300 Poin
+
+Setiap dungeon akan disimpan dalam shared memory sendiri yang berbeda dan dapat diakses oleh hunter.
+
+### Penyelesaian D
+
+### E. Fitur menampilkan daftar lengkap dungeon
+  Untuk memudahkan admin dalam memantau dungeon yang muncul, Sung Jin Woo menambahkan fitur yang menampilkan informasi detail semua dungeon. Fitur ini menampilkan daftar lengkap dungeon beserta nama, level minimum, reward (EXP, ATK, HP, DEF), dan key unik untuk masing-masing dungeon.
+
+### Penyelesaian E
+
+### F. Fitur yang menampilkan dungeon yang tersedia sesuai dengan level hunter.
+Pada saat yang sama, dungeon yang dibuat oleh sistem juga harus dapat diakses oleh hunter. Sung Jin Woo menambahkan fitur yang menampilkan semua dungeon yang tersedia sesuai dengan level hunter. Disini, hunter hanya dapat menampilkan dungeon dengan level minimum yang sesuai dengan level mereka.
+
+### Penyelesaian F
+
+### G. Fitur raid dungeon
+Setelah melihat beberapa hunter yang terlalu kuat, Sung Jin Woo memutuskan untuk menambahkan fitur untuk menguasai dungeon. Ketika hunter berhasil menaklukan sebuah dungeon, dungeon tersebut akan menghilang dari sistem dan hunter akan mendapatkan stat rewards dari dungeon. Jika exp hunter mencapai 500, mereka akan naik level dan exp kembali ke 0.
+
+### Penyelesaian G
+  
+### H.Fitur battle hunter
+Karena persaingan antar hunter semakin ketat, Sung Jin Woo mengimplementasikan fitur dimana hunter dapat memilih untuk bertarung dengan hunter lain. Tingkat kekuatan seorang hunter bisa dihitung melalui total stats yang dimiliki hunter tersebut (ATK+HP+DEF). Jika hunter menang, maka hunter tersebut akan mendapatkan semua stats milik lawan dan lawannya akan terhapus dari sistem. Jika kalah, hunter tersebutlah yang akan dihapus dari sistem dan semua statsnya akan diberikan kepada hunter yang dilawannya.
+
+### Penyelesaian H
+
+### I. Fitur ban hunter
+Saat sedang memonitoring sistem, Sung Jin Woo melihat beberapa hunter melakukan kecurangan di dalam sistem. Ia menambahkan fitur di sistem yang membuat dia dapat melarang hunter tertentu untuk melakukan raid atau battle. Karena masa percobaan tak bisa berlangsung selamanya 😇, Sung Jin Woo pun juga menambahkan konfigurasi agar fiturnya dapat memperbolehkan hunter itu melakukan raid atau battle lagi. 
+
+### Penyelesaian I
+
+### J. Fitur reset hunter
+Setelah beberapa pertimbangan, untuk memberikan kesempatan kedua bagi hunter yang ingin bertobat dan memulai dari awal, Sung Jin Woo juga menambahkan fitur di sistem yang membuat dia bisa mengembalikan stats hunter tertentu ke nilai awal. 
+
+### Penyelesaian J
+
+### K. Fitur notifikasi
+Untuk membuat sistem lebih menarik dan tidak membosankan, Sung Jin Woo menambahkan fitur notifikasi dungeon di setiap hunter. Saat diaktifkan, akan muncul informasi tentang semua dungeon yang terbuka dan akan terus berganti setiap 3 detik.
+
+### Penyelesaian K
+  
+### L. Konfigurasi Exit
+Terakhir, untuk menambah keamanan sistem agar data hunter tidak bocor, Sung Jin Woo melakukan konfigurasi agar setiap kali sistem dimatikan, maka semua shared memory yang sedang berjalan juga akan ikut terhapus. 
+
+### Penyelesaian L
+
+
+
+
+
+
