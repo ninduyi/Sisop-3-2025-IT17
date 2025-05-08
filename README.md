@@ -87,6 +87,19 @@ Server menyimpan log semua percakapan antara image_server.c dan image_client.c d
 ### Penyelesaian G
 aa
 
+### Dokumentasi Soal 1
+- Menjalankan `image_server` dan port connect
+
+![run image_server](assets/1a.png)
+
+![run image_server](assets/1b.png)
+
+- Menjalankan image_client dan download file txt
+
+![](assets/1c.png)
+
+![](assets/1d.png)
+
 # Soal 2  
 *Oleh : Balqis Sani Sabillah*
 
@@ -1042,16 +1055,246 @@ Agar hunter lain tidak bingung, Sung Jin Woo memutuskan untuk membuat dua file, 
 **NOTE : hunter bisa dijalankan ketika sistem sudah dijalankan.**
 
 ### Penyelesaian A
+#### Penjelasan Umum
+Soal meminta kita membuat dua file, yaitu `system.c` dan `hunter.c`. Keduanya menggunakan konsep **shared memory** untuk saling berkomunikasi dan bertukar data. `system.c` bertindak sebagai pusat sistem yang menyimpan informasi semua hunter dan dungeon. `hunter.c` adalah client yang mewakili user (hunter) individual yang akan melakukan registrasi, login, raid, battle, dan lain-lain.
+
+#### Shared Memory
+Untuk menghubungkan antar proses (`system.c` dan `hunter.c`), digunakan shared memory dari header `sys/shm.h`. Shared memory utama diinisialisasi di `system.c` dengan dua segmen:
+```c
+shmid_hunter = shmget(SHM_KEY_HUNTER, sizeof(Hunter) * MAX_HUNTERS, IPC_CREAT | 0666);
+shmid_dungeon = shmget(SHM_KEY_DUNGEON, sizeof(Dungeon) * MAX_DUNGEONS, IPC_CREAT | 0666);
+```
+**Penjelasan per baris:**
+- `shmget`: Fungsi untuk membuat segment shared memory.
+- `SHM_KEY_HUNTER`: Key unik (0x1234) untuk segment hunter.
+- `sizeof(Hunter) * MAX_HUNTERS`: Ukuran memori yang dialokasikan untuk 100 hunter.
+- `IPC_CREAT | 0666`: Flag untuk membuat jika belum ada, dan permission full access (read-write untuk semua user).
+
+Lalu, segmen yang sudah dibuat akan dipasangkan ke pointer:
+```c
+hunters = (Hunter *)shmat(shmid_hunter, NULL, 0);
+dungeons = (Dungeon *)shmat(shmid_dungeon, NULL, 0);
+```
+- `shmat`: Attach shared memory ke alamat proses.
+- Return value-nya adalah pointer ke awal memory segment yang bisa digunakan untuk membaca/menulis data.
+
+#### Struktur Data
+Kita mendefinisikan dua `struct`:
+```c
+typedef struct {
+    char name[NAME_LEN];
+    int level, exp, atk, hp, def;
+    int banned;
+    int in_use;
+    long key;
+} Hunter;
+```
+**Keterangan:**
+- `name`: Nama hunter.
+- `level`, `exp`, `atk`, `hp`, `def`: Stat dasar hunter.
+- `banned`: Flag untuk status hunter.
+- `in_use`: Penanda apakah hunter sedang aktif di sistem.
+- `key`: Key unik untuk shared memory personal hunter.
+
+```c
+typedef struct {
+    char name[NAME_LEN];
+    int min_level, exp_reward, atk_reward, hp_reward, def_reward;
+    long key;
+    int in_use;
+} Dungeon;
+```
+**Keterangan:**
+- `name`: Nama dungeon.
+- `min_level`: Level minimum hunter untuk masuk.
+- `exp_reward`, `atk_reward`, `hp_reward`, `def_reward`: Hadiah jika dungeon ditaklukkan.
+- `key`: Key unik shared memory untuk dungeon.
+- `in_use`: Apakah dungeon aktif atau tidak.
+
+#### Hunter Harus Menunggu System
+Di `hunter.c`, proses pertama adalah:
+```c
+shmid_hunter = shmget(SHM_KEY_HUNTER, sizeof(Hunter) * MAX_HUNTERS, 0666);
+shmid_dungeon = shmget(SHM_KEY_DUNGEON, sizeof(Dungeon) * MAX_DUNGEONS, 0666);
+```
+Jika gagal, maka:
+```c
+if (shmid_hunter == -1 || shmid_dungeon == -1) {
+    printf("[ERROR] Sistem belum dijalankan. Jalankan system.c terlebih dahulu.\n");
+    exit(1);
+}
+```
+Artinya hunter hanya bisa berjalan jika `system.c` telah membuat segment shared memory. Ini menunjukkan bahwa `system.c` harus dijalankan terlebih dahulu sebagai **server**, baru `hunter.c` sebagai **client**.
+
+#### Kesimpulan
+Bagian A sudah memenuhi semua spesifikasi:
+- Dua file `system.c` dan `hunter.c` telah dibuat.
+- Sistem shared memory digunakan untuk komunikasi antar proses.
+- `system.c` adalah server yang mengelola semua hunter dan dungeon.
+- `hunter.c` adalah client yang menggunakan data dari sistem dan hanya bisa berjalan jika sistem aktif.
 
 ### B. Menambah fitur registrasi dan login di program hunter
 Untuk memastikan keteraturan sistem, Sung Jin Woo memutuskan untuk membuat fitur registrasi dan login di program hunter. Setiap hunter akan memiliki key unik dan stats awal (Level=1, EXP=0, ATK=10, HP=100, DEF=5). Data hunter disimpan dalam shared memory tersendiri yang terhubung dengan sistem.
 
 ### Penyelesaian B
+#### Penjelasan Umum
+Pada bagian ini, kita diminta untuk membuat **fitur registrasi dan login** dalam program `hunter.c`. Setiap hunter harus memiliki data awal berupa:
 
+- Level: 1
+- EXP: 0
+- ATK: 10
+- HP: 100
+- DEF: 5
+
+Selain itu, data hunter harus disimpan dalam **shared memory pribadi** yang memiliki key unik dan ditambahkan ke shared memory global hunter yang dikelola oleh sistem (`system.c`).
+
+#### Fungsi `register_hunter()`
+Berikut kode fungsi untuk registrasi:
+```c
+void register_hunter() {
+    char name[NAME_LEN];
+    printf("Username: "); fgets(name, NAME_LEN, stdin); name[strcspn(name, "\n")] = 0;
+
+    long key = time(NULL) + rand();
+
+    int shm_id = shmget(key, sizeof(Hunter), IPC_CREAT | 0666);
+    if (shm_id == -1) { perror("Failed to create shared memory for hunter"); return; }
+
+    Hunter *new_hunter = shmat(shm_id, NULL, 0);
+    if (new_hunter == (void *) -1) { perror("Failed to attach shared memory for hunter"); return; }
+
+    strcpy(new_hunter->name, name);
+    new_hunter->level = 1;
+    new_hunter->exp = 0;
+    new_hunter->atk = 10;
+    new_hunter->hp = 100;
+    new_hunter->def = 5;
+    new_hunter->banned = 0;
+    new_hunter->in_use = 1;
+    new_hunter->key = key;
+
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (!hunters[i].in_use) {
+            hunters[i] = *new_hunter;
+            printf("Hunter registration success!\n");
+            press_enter();
+            return;
+        }
+    }
+
+    printf("Hunter registration failed.\n");
+    press_enter();
+    shmdt(new_hunter);
+}
+```
+
+##### Penjelasan Rinci:
+- `fgets(name, NAME_LEN, stdin)`: Menerima input nama dari user.
+- `name[strcspn(name, "\n")] = 0`: Menghilangkan newline dari `fgets()` agar string bersih.
+- `long key = time(NULL) + rand();`: Membuat key unik berdasarkan waktu dan angka random.
+- `shmget(...)`: Membuat shared memory khusus untuk hunter ini.
+- `shmat(...)`: Menyambungkan pointer ke segment tersebut agar bisa diisi datanya.
+- Field `name`, `level`, `exp`, `atk`, `hp`, `def` diisi sesuai permintaan soal.
+- `new_hunter->in_use = 1`: Menandakan hunter ini aktif.
+- `key` disimpan ke `new_hunter->key`: Penting agar sistem bisa hapus jika hunter kalah.
+- Terakhir, hunter baru ini dimasukkan ke shared memory global dengan `hunters[i] = *new_hunter;`.
+
+#### Fungsi `login_hunter()`
+Hunter juga bisa login kembali jika sudah terdaftar.
+```c
+int login_hunter() {
+    char name[NAME_LEN];
+    printf("Username: "); fgets(name, NAME_LEN, stdin); name[strcspn(name, "\n")] = 0;
+
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
+            me = &hunters[i];
+            system("clear");
+            return 1;
+        }
+    }
+    printf("Login failed.\n");
+    press_enter();
+    return 0;
+}
+```
+
+##### Penjelasan Rinci:
+- Mengambil input username dan mencocokkannya dengan semua hunter di shared memory global.
+- Jika cocok dan hunter masih aktif (`in_use == 1`), maka pointer `me` diarahkan ke hunter tersebut.
+- Jika tidak ketemu, maka muncul pesan "Login failed".
+
+#### Kesimpulan
+- Fitur registrasi telah memenuhi semua kriteria: memiliki key unik, menyimpan stats awal, serta menyimpan ke shared memory global.
+- Fitur login berhasil mengakses data hunter yang telah tersimpan sebelumnya.
 ### C. Fitur yang menampilkan informasi semua hunter (sistem)
 Agar dapat memantau perkembangan para hunter dengan mudah, Sung Jin Woo menambahkan fitur di sistem yang dapat menampilkan informasi semua hunter yang terdaftar, termasuk nama hunter, level, exp, atk, hp, def, dan status (banned atau tidak). Ini membuat dia dapat melihat siapa hunter terkuat dan siapa yang mungkin melakukan kecurangan.
 
 ### Penyelesaian C
+#### Penjelasan Umum
+Untuk memantau perkembangan para hunter, sistem perlu memiliki fitur yang menampilkan **informasi lengkap** dari semua hunter yang terdaftar. Fitur ini ada di file `system.c` dengan fungsi bernama `show_hunters()`.
+
+Informasi yang ditampilkan meliputi:
+- Nama
+- Level
+- EXP
+- ATK
+- HP
+- DEF
+- Status (BANNED atau ACTIVE)
+
+#### Fungsi `show_hunters()`
+Berikut adalah kode fungsi yang menampilkan informasi hunter:
+
+```c
+void show_hunters() {
+    printf("\\n================================ HUNTER INFO ================================\\n");
+    printf("| %-3s | %-20s | %-5s | %-5s | %-5s | %-5s | %-5s | %-8s |\\n",
+           "No", "Name", "Level", "EXP", "ATK", "HP", "DEF", "Status");
+    printf("-------------------------------------------------------------------------------\\n");
+
+    int num = 1;
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use) {
+            printf("| %-3d | %-20s | %-5d | %-5d | %-5d | %-5d | %-5d | %-8s |\\n",
+                   num++, hunters[i].name, hunters[i].level, hunters[i].exp,
+                   hunters[i].atk, hunters[i].hp, hunters[i].def,
+                   hunters[i].banned ? "BANNED" : "ACTIVE");
+        }
+    }
+    printf("===============================================================================\\n");
+}
+```
+
+#### Penjelasan Rinci per Baris:
+- `printf(...)`: Menampilkan judul tabel dan header kolom menggunakan format `%-Ns` (rata kiri dengan lebar N).
+  - `%-3s` untuk kolom No (nomor urut), dan seterusnya untuk kolom-kolom lainnya.
+- `int num = 1;`: Variabel `num` digunakan untuk memberi nomor urut pada setiap hunter yang terdaftar.
+- `for (int i = 0; i < MAX_HUNTERS; i++)`: Iterasi untuk mengakses setiap data hunter yang ada di shared memory.
+- `if (hunters[i].in_use)`: Mengecek apakah data hunter yang sedang diproses aktif (`in_use == 1`).
+- `printf(...)`: Menampilkan data dari masing-masing hunter dengan format yang sudah ditentukan:
+  - `hunters[i].name`: Nama hunter.
+  - `hunters[i].level`: Level hunter.
+  - `hunters[i].exp`: EXP hunter.
+  - `hunters[i].atk`: ATK hunter.
+  - `hunters[i].hp`: HP hunter.
+  - `hunters[i].def`: DEF hunter.
+  - `hunters[i].banned ? "BANNED" : "ACTIVE"`: Jika hunter dibanned, maka statusnya "BANNED", jika tidak "ACTIVE".
+
+#### Output Tabel
+Fungsi ini akan menampilkan daftar seperti berikut:
+
+```plaintext
+| No  | Name                 | Level | EXP   | ATK   | HP    | DEF   | Status   |
+|-----|----------------------|-------|-------|-------|-------|-------|----------|
+| 1   | Sung Jin Woo         | 5     | 0     | 200   | 400   | 100   | ACTIVE   |
+| 2   | Go Gun Hee           | 3     | 120   | 150   | 250   | 70    | BANNED   |
+```
+
+#### Kesimpulan
+- Fungsi `show_hunters()` berhasil menampilkan semua informasi yang dibutuhkan soal, seperti nama, level, exp, atk, hp, def, dan status dari setiap hunter.
+- Format tabel yang digunakan membuat informasi terlihat jelas dan mudah dibaca, yang membantu admin dalam memantau perkembangan para hunter.
+- Data `banned` juga ditampilkan dengan benar, sesuai dengan status yang dimiliki oleh hunter.
 
 ### D. Fitur dalam sistem yang bisa menghasilkan dungeon secara random
 Setelah beberapa hari bekerja, Sung Jin Woo menyadari bahwa para hunter membutuhkan tempat untuk berlatih dan memperoleh pengalaman. Ia memutuskan untuk membuat fitur unik dalam sistem yang dapat menghasilkan dungeon secara random dengan nama, level minimal hunter, dan stat rewards dengan nilai:
@@ -1064,31 +1307,510 @@ Setelah beberapa hari bekerja, Sung Jin Woo menyadari bahwa para hunter membutuh
 Setiap dungeon akan disimpan dalam shared memory sendiri yang berbeda dan dapat diakses oleh hunter.
 
 ### Penyelesaian D
+#### Penjelasan Umum
+Pada bagian ini, kita diminta untuk membuat **fitur pembuatan dungeon secara acak**. Setiap dungeon yang dibuat harus memiliki informasi seperti:
+- Nama dungeon
+- Level minimal hunter yang bisa mengaksesnya
+- Reward untuk stats hunter setelah raid (ATK, HP, DEF)
+- EXP yang diperoleh
+
+Dungeon yang dibuat harus disimpan dalam **shared memory pribadi** yang berbeda, dan dapat diakses oleh semua hunter yang memenuhi syarat level.
+
+#### Fungsi `generate_dungeon()`
+Berikut adalah kode fungsi untuk menghasilkan dungeon secara acak:
+
+```c
+void generate_dungeon() {
+    for (int i = 0; i < MAX_DUNGEONS; i++) {
+        if (!dungeons[i].in_use) {
+            long key = time(NULL) + rand(); // Membuat key unik berdasarkan waktu dan angka random
+
+            int shm_id = shmget(key, sizeof(Dungeon), IPC_CREAT | 0666);
+            if (shm_id == -1) {
+                perror("Failed to create shared memory for dungeon");
+                return;
+            }
+
+            Dungeon *new_dungeon = shmat(shm_id, NULL, 0);
+            if (new_dungeon == (void *) -1) {
+                perror("Failed to attach shared memory for dungeon");
+                return;
+            }
+
+            new_dungeon->in_use = 1;
+            strncpy(new_dungeon->name, dungeon_names[rand() % 13], NAME_LEN); // Memilih nama dungeon secara acak
+            new_dungeon->min_level = rand() % 5 + 1; // Level minimum dungeon antara 1-5
+            new_dungeon->atk_reward = rand() % 51 + 100; // ATK reward antara 100-150
+            new_dungeon->hp_reward = rand() % 51 + 50; // HP reward antara 50-100
+            new_dungeon->def_reward = rand() % 26 + 25; // DEF reward antara 25-50
+            new_dungeon->exp_reward = rand() % 151 + 150; // EXP reward antara 150-300
+            new_dungeon->key = key; // Menyimpan key unik dungeon
+
+            dungeons[i] = *new_dungeon; // Menyimpan dungeon yang baru dibuat ke shared memory global
+
+            printf("\nDungeon generated and added to system:\n");
+            printf("Name           : %s\n", new_dungeon->name);
+            printf("Minimum Level  : %d\n", new_dungeon->min_level);
+
+            shmdt(new_dungeon); // Melepaskan shared memory setelah selesai
+            return;
+        }
+    }
+    printf("Dungeon memory full.\n");
+}
+```
+#### Penjelasan Rinci per Baris:
+- `for (int i = 0; i < MAX_DUNGEONS; i++)`: Iterasi untuk mencari slot dungeon yang kosong dalam array dungeons[].
+
+- `long key = time(NULL) + rand();`: Membuat key unik untuk dungeon baru menggunakan kombinasi waktu saat itu dan angka acak.
+
+- `shmget(...)`: Fungsi ini membuat segment shared memory untuk dungeon baru. `IPC_CREAT | 0666` memastikan segment dapat dibuat jika belum ada dan memberikan akses penuh.
+
+- `shmat(...)`: Fungsi ini menghubungkan shared memory ke proses agar bisa diakses.
+
+- `new_dungeon->in_use = 1;`: Menandakan dungeon baru ini aktif dan dapat digunakan.
+
+- `strncpy(new_dungeon->name, dungeon_names[rand() % 13], NAME_LEN);`: Menetapkan nama dungeon secara acak dari daftar nama dungeon yang sudah ada.
+
+- `new_dungeon->min_level = rand() % 5 + 1;`: Menetapkan level minimum dungeon secara acak antara 1 hingga 5.
+
+- `new_dungeon->atk_reward, new_dungeon->hp_reward, new_dungeon->def_reward, new_dungeon->exp_reward`: Menetapkan reward secara acak dalam batasan yang telah ditentukan.
+
+- `dungeons[i] = *new_dungeon;`: Menyimpan dungeon yang telah dibuat ke dalam array `dungeons[]` yang ada di shared memory global.
+
+#### Kesimpulan
+- Fitur `generate_dungeon()` berhasil membuat dungeon secara acak dengan informasi yang sesuai permintaan soal.
+
+- Setiap dungeon disimpan dalam shared memory dengan key unik, sehingga mudah diakses oleh semua hunter yang memenuhi syarat level.
+
+- Proses pembuatan dungeon dilakukan hanya jika ada slot kosong dalam array `dungeons[]`, memastikan tidak ada penumpukan dungeon yang tidak terpakai.
 
 ### E. Fitur menampilkan daftar lengkap dungeon
   Untuk memudahkan admin dalam memantau dungeon yang muncul, Sung Jin Woo menambahkan fitur yang menampilkan informasi detail semua dungeon. Fitur ini menampilkan daftar lengkap dungeon beserta nama, level minimum, reward (EXP, ATK, HP, DEF), dan key unik untuk masing-masing dungeon.
 
 ### Penyelesaian E
+#### Penjelasan Umum
+Sung Jin Woo membutuhkan fitur untuk melihat informasi lengkap semua dungeon yang tersedia di sistem. Data dungeon disimpan di shared memory global yang dibuat oleh system.c. Informasi yang ditampilkan meliputi:
+- Nama dungeon
+- Level minimum hunter yang dibutuhkan
+- Reward: EXP, ATK, HP, DEF
+- Key unik dungeon
 
+Fitur ini diimplementasikan dalam fungsi show_dungeons() yang berada di file system.c.
+
+**Fungsi** `show_dungeons()`
+```c
+void show_dungeons() {
+    printf("\\n==================================== DUNGEON INFO ====================================\\n");
+    printf("| %-3s | %-25s | %-10s | %-5s | %-5s | %-5s | %-12s |\\n",
+           "No", "Name", "Min Level", "EXP", "ATK", "HP", "Key");
+    printf("---------------------------------------------------------------------------------------\\n");
+
+    int num = 1;
+    for (int i = 0; i < MAX_DUNGEONS; i++) {
+        if (dungeons[i].in_use) {
+            printf("| %-3d | %-25s | %-10d | %-5d | %-5d | %-5d | %-12ld |\\n",
+                   num++, dungeons[i].name, dungeons[i].min_level,
+                   dungeons[i].exp_reward, dungeons[i].atk_reward,
+                   dungeons[i].hp_reward, dungeons[i].key);
+        }
+    }
+    printf("======================================================================================\\n");
+}
+```
+
+#### Penjelasan Rinci per Baris:
+- Header tabel dibuat agar mudah dibaca dan menampilkan semua kolom penting.
+- num digunakan sebagai penomoran dungeon secara urut.
+- Iterasi dilakukan pada seluruh array dungeon (MAX_DUNGEONS).
+- Hanya dungeon yang sedang aktif (in_use == 1) yang ditampilkan.
+- Informasi yang dicetak meliputi:
+    - name: Nama dungeon
+    - min_level: Level minimum hunter
+    - exp_reward, atk_reward, hp_reward: Hadiah
+    - key: ID unik untuk shared memory dungeon
+
+#### Contoh Output:
+```bash
+| No  | Name                     | Min Level | EXP   | ATK   | HP    | Key         |
+|-----|--------------------------|-----------|-------|-------|-------|-------------|
+| 1   | Red Gate Dungeon         | 3         | 250   | 120   | 80    | 1978481281  |
+| 2   | Goblins Dungeon          | 2         | 180   | 105   | 70    | 1978481299  |
+```
+#### Kesimpulan
+- Fungsi `show_dungeons()` menampilkan semua informasi dungeon aktif dengan struktur tabel.
+- Formatnya memudahkan pemantauan oleh admin.
+- Setiap dungeon punya identitas unik dengan key yang ditampilkan.
 ### F. Fitur yang menampilkan dungeon yang tersedia sesuai dengan level hunter.
 Pada saat yang sama, dungeon yang dibuat oleh sistem juga harus dapat diakses oleh hunter. Sung Jin Woo menambahkan fitur yang menampilkan semua dungeon yang tersedia sesuai dengan level hunter. Disini, hunter hanya dapat menampilkan dungeon dengan level minimum yang sesuai dengan level mereka.
 
 ### Penyelesaian F
+#### Penjelasan Umum
+Soal meminta hunter hanya bisa melihat dungeon yang tersedia dan sesuai level mereka. Artinya, jika dungeon membutuhkan level 3, maka hanya hunter dengan level ≥ 3 yang bisa melihat dungeon tersebut.
+
+Fitur ini diimplementasikan dalam file `hunter.c` dengan fungsi bernama `show_dungeons()`.
+
+**Fungsi `show_dungeons()` dari `hunter.c`**
+```bash
+void show_dungeons() {
+    notif_paused = 1;
+    system("clear");
+    printf("=== AVAILABLE DUNGEONS ===\\n");
+    int count = 0;
+    for (int i = 0; i < MAX_DUNGEONS; i++) {
+        if (dungeons[i].in_use && dungeons[i].min_level <= me->level) {
+            printf("%d. %s (Level %d+)\\n", ++count, dungeons[i].name, dungeons[i].min_level);
+        }
+    }
+    if (count == 0) printf("No available dungeons.\\n");
+    press_enter();
+    notif_paused = 0;
+}
+```
+#### Penjelasan Rinci Baris per Baris
+- `notif_paused = 1;` Ini adalah flag internal untuk menghentikan fitur notifikasi sementara agar tidak mengganggu tampilan.
+
+- `system("clear");` Membersihkan layar terminal agar tampilan dungeon bersih.
+
+- `printf("=== AVAILABLE DUNGEONS ===\\n")`; Menampilkan judul bagian dungeon list.
+
+- `for (int i = 0; i < MAX_DUNGEONS; i++)` Mengecek setiap dungeon yang disimpan dalam array dungeons[].
+
+- `if (dungeons[i].in_use && dungeons[i].min_level <= me->level)` Filter hanya dungeon yang:
+
+    - Masih aktif (in_use == 1), dan
+    - Level minimum-nya kurang dari atau sama dengan level hunter saat ini (me->level).
+
+- `printf("%d. %s (Level %d+)\\n", ++count, dungeons[i].name, dungeons[i].min_level);` Menampilkan daftar dungeon yang bisa diakses hunter sesuai level.
+
+- `if (count == 0) printf("No available dungeons.\\n");` Jika tidak ada dungeon yang sesuai level hunter, tampilkan pesan.
+
+- `press_enter();` Memberikan jeda sebelum kembali ke menu.
+
+- `notif_paused = 0;` Mengaktifkan kembali notifikasi setelah dungeon ditampilkan.
+
+#### Kesimpulan
+- Fungsi `show_dungeons()` telah disesuaikan untuk hanya menampilkan dungeon yang tersedia dan memenuhi syarat level hunter.
+
+- Filter menggunakan `dungeons[i].min_level <= me->level` sesuai dengan logika soal.
+
+- Penggunaan flag notif_paused menjaga agar tampilan tidak bentrok dengan fitur notifikasi dungeon yang berjalan di thread terpisah.
+
 
 ### G. Fitur raid dungeon
 Setelah melihat beberapa hunter yang terlalu kuat, Sung Jin Woo memutuskan untuk menambahkan fitur untuk menguasai dungeon. Ketika hunter berhasil menaklukan sebuah dungeon, dungeon tersebut akan menghilang dari sistem dan hunter akan mendapatkan stat rewards dari dungeon. Jika exp hunter mencapai 500, mereka akan naik level dan exp kembali ke 0.
 
 ### Penyelesaian G
-  
+#### Penjelasan Umum
+Fitur ini memungkinkan hunter untuk menaklukkan dungeon dan memperoleh hadiah stat dari dungeon tersebut. Setelah dungeon berhasil di-raid:
+
+1. Hunter akan mendapatkan ATK, HP, DEF, dan EXP reward.
+
+2. Jika EXP mencapai 500, hunter naik level dan EXP di-reset ke 0.
+
+3. Dungeon yang telah ditaklukkan akan dihapus dari sistem (shared memory-nya dihapus).
+
+Fitur ini diimplementasikan dalam fungsi `raid_dungeon()`
+```bash
+void raid_dungeon() {
+    notif_paused = 1;
+    if (me->banned) {
+        printf("You are BANNED. You cannot raid.\\n");
+        press_enter();
+        notif_paused = 0;
+        return;
+    }
+
+    system("clear");
+    printf("=== RAIDABLE DUNGEONS ===\\n");
+    int idx_map[MAX_DUNGEONS], idx = 0;
+    for (int i = 0; i < MAX_DUNGEONS; i++) {
+        if (dungeons[i].in_use && dungeons[i].min_level <= me->level) {
+            printf("%d. %s (Level %d+)\\n", idx + 1, dungeons[i].name, dungeons[i].min_level);
+            idx_map[idx++] = i;
+        }
+    }
+
+    if (idx == 0) {
+        printf("No dungeon available.\\n");
+        press_enter();
+        notif_paused = 0;
+        return;
+    }
+
+    int ch;
+    printf("Choose Dungeon: ");
+    scanf("%d", &ch); getchar();
+    if (ch < 1 || ch > idx) {
+        printf("Invalid choice.\\n");
+        press_enter();
+        notif_paused = 0;
+        return;
+    }
+
+    Dungeon *d = &dungeons[idx_map[ch - 1]];
+
+    printf("\\nRaid success! Gained:\\n");
+    printf("ATK: %d\\nHP: %d\\nDEF: %d\\nEXP: %d\\n", d->atk_reward, d->hp_reward, d->def_reward, d->exp_reward);
+
+    me->atk += d->atk_reward;
+    me->hp += d->hp_reward;
+    me->def += d->def_reward;
+    me->exp += d->exp_reward;
+    if (me->exp >= 500) { me->level++; me->exp = 0; }
+
+    d->in_use = 0;
+
+    int shm_id = shmget(d->key, sizeof(Dungeon), 0666);
+    if (shm_id != -1) {
+        shmdt(d);
+        shmctl(shm_id, IPC_RMID, NULL);
+    }
+
+    press_enter();
+    notif_paused = 0;
+}
+```
+#### Penjelasan Rinci
+1. `notif_paused` = 1; Menghentikan notifikasi agar tidak mengganggu tampilan menu raid.
+
+2. i`f (me->banned)`: Hunter yang dibanned tidak boleh melakukan raid. Langsung keluar dari fungsi jika kondisi ini terpenuhi.
+
+3. Menampilkan semua dungeon yang dapat diakses (mirip seperti show_dungeons()), tetapi disimpan indeksnya di idx_map[] untuk dipilih oleh user.
+
+4. User memilih dungeon dari input scanf. Validasi input dilakukan untuk mencegah out-of-range index.
+
+5. `Dungeon *d = &dungeons[idx_map[ch - 1]];`: Ambil pointer ke dungeon yang dipilih user.
+
+6. Hunter menerima semua hadiah dari dungeon:
+```bash
+me->atk += d->atk_reward;
+me->hp += d->hp_reward;
+me->def += d->def_reward;
+me->exp += d->exp_reward;
+```
+7. Level Up:
+
+Jika EXP mencapai atau melebihi 500, hunter naik level:
+```bash
+if (me->exp >= 500) { me->level++; me->exp = 0; }
+```
+Dungeon dihapus dari sistem:
+
+- `d->in_use = 0`: menandai bahwa dungeon tidak aktif.
+
+- Hapus segment shared memory dungeon menggunakan `shmctl`.
+
+#### Kesimpulan
+- Fitur raid_dungeon() memungkinkan hunter menaikkan statistiknya dengan cara adil.
+
+- Sistem level-up dan pembatasan EXP sudah diterapkan.
+
+- Dungeon yang sudah ditaklukkan tidak akan muncul lagi karena shared memory-nya dihapus.
+
+- Fitur ini sudah sepenuhnya memenuhi deskripsi pada poin G soal.
+
 ### H.Fitur battle hunter
 Karena persaingan antar hunter semakin ketat, Sung Jin Woo mengimplementasikan fitur dimana hunter dapat memilih untuk bertarung dengan hunter lain. Tingkat kekuatan seorang hunter bisa dihitung melalui total stats yang dimiliki hunter tersebut (ATK+HP+DEF). Jika hunter menang, maka hunter tersebut akan mendapatkan semua stats milik lawan dan lawannya akan terhapus dari sistem. Jika kalah, hunter tersebutlah yang akan dihapus dari sistem dan semua statsnya akan diberikan kepada hunter yang dilawannya.
 
 ### Penyelesaian H
+### Penyelesaian H
+
+#### Penjelasan Umum  
+Sung Jin Woo mengamati bahwa para hunter mulai bersaing satu sama lain. Oleh karena itu, ia menambahkan fitur agar hunter bisa saling **bertarung (PVP)**. Aturan pertarungan adalah:
+
+- Kekuatan hunter dihitung dari **total stat: ATK + HP + DEF**.
+- Jika menang:
+  - Hunter akan mendapatkan seluruh stat dari lawannya.
+  - Lawan dihapus dari sistem (shared memory-nya dihapus).
+- Jika kalah:
+  - Hunter akan dihapus, dan lawan mendapatkan seluruh stat miliknya.
+
+Fitur ini diimplementasikan dalam fungsi `battle()` pada `hunter.c`.
+
+#### Fungsi `battle()`
+```c
+void battle() {
+    notif_paused = 1;
+    if (me->banned) {
+        printf("You are BANNED. You cannot battle.\n");
+        press_enter();
+        notif_paused = 0;
+        return;
+    }
+
+    system("clear");
+    printf("======= Choose Who's to Fight =======\n");
+    int found = 0;
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (&hunters[i] != me && hunters[i].in_use) {
+            printf("- %s (Power: %d)\n", hunters[i].name, hunters[i].atk + hunters[i].hp + hunters[i].def);
+            found = 1;
+        }
+    }
+
+    if (!found) {
+        printf("No available opponents.\n");
+        press_enter();
+        notif_paused = 0;
+        return;
+    }
+
+    char name[NAME_LEN];
+    printf("Input name: "); fgets(name, NAME_LEN, stdin); name[strcspn(name, "\n")] = 0;
+
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0 && &hunters[i] != me) {
+            Hunter *op = &hunters[i];
+            printf("\n=== PVP LIST ===\n");
+            printf("%s - Total Power: %d\n", op->name, op->atk + op->hp + op->def);
+            printf("Your Power: %d\nOpponent's Power: %d\n", me->atk + me->hp + me->def, op->atk + op->hp + op->def);
+
+            if ((me->atk + me->hp + me->def) >= (op->atk + op->hp + op->def)) {
+                me->atk += op->atk;
+                me->hp += op->hp;
+                me->def += op->def;
+                op->in_use = 0;
+                int shm_id = shmget(op->key, sizeof(Hunter), 0666);
+                if (shm_id != -1) shmctl(shm_id, IPC_RMID, NULL);
+                printf("Battle won! You acquired %s's stats\n", op->name);
+            } else {
+                op->atk += me->atk;
+                op->hp += me->hp;
+                op->def += me->def;
+                me->in_use = 0;
+                int shm_id = shmget(me->key, sizeof(Hunter), 0666);
+                if (shm_id != -1) shmctl(shm_id, IPC_RMID, NULL);
+                printf("You lost. Eliminated.\n");
+            }
+
+            press_enter();
+            notif_paused = 0;
+            return;
+        }
+    }
+
+    printf("Target not found.\n");
+    press_enter();
+    notif_paused = 0;
+}
+```
+#### Penjelasan Rinci
+
+- `notif_paused = 1;`  
+  Memberi tahu thread notifikasi untuk berhenti sejenak agar tampilan tidak saling tumpang tindih saat hunter sedang berada di menu battle.
+
+- `if (me->banned)`  
+  Mengecek apakah hunter saat ini sedang dibanned. Jika ya, maka hunter tidak bisa mengikuti pertarungan dan fungsi `battle()` akan keluar lebih awal.
+
+- `system("clear");`  
+  Membersihkan layar agar tampilan menu pertarungan terlihat lebih rapi dan tidak tercampur dengan tampilan sebelumnya.
+
+- `for (int i = 0; i < MAX_HUNTERS; i++)`  
+  Melakukan iterasi ke semua hunter yang aktif di shared memory.
+
+- `&hunters[i] != me`  
+  Pastikan tidak menampilkan diri sendiri sebagai lawan.
+
+- `hunters[i].in_use`  
+  Mengecek apakah hunter masih aktif dalam sistem.
+
+- `printf(...)`  
+  Menampilkan daftar hunter lain beserta total power mereka yang dihitung dari `atk + hp + def`.
+
+- `fgets(name, NAME_LEN, stdin); name[strcspn(name, "\\n")] = 0;`  
+  Mengambil input nama lawan dari user dan menghapus karakter newline (`\\n`) di akhir string.
+
+- `if (strcmp(hunters[i].name, name) == 0 && &hunters[i] != me)`  
+  Mencocokkan nama input dengan nama lawan yang valid dan memastikan bukan dirinya sendiri.
+
+- `Hunter *op = &hunters[i];`  
+  Menyimpan pointer ke hunter lawan agar mudah diakses dalam proses pertarungan.
+
+- Menampilkan total power kedua pihak:
+  - `me->atk + me->hp + me->def`
+  - `op->atk + op->hp + op->def`
+
+- **Jika hunter menang:**
+  - Stat lawan ditambahkan ke stat kita (`+=`)
+  - `op->in_use = 0` untuk menghapus hunter lawan dari daftar aktif.
+  - Ambil dan hapus shared memory lawan menggunakan `shmget()` dan `shmctl()`.
+
+- **Jika hunter kalah:**
+  - Stat kita ditambahkan ke lawan.
+  - Kita sendiri di-nonaktifkan (`me->in_use = 0`)
+  - Shared memory hunter saat ini dihapus juga dengan `shmget()` dan `shmctl()`.
+
+- `press_enter(); notif_paused = 0;`  
+  Memberi jeda sebelum kembali ke menu, dan melanjutkan thread notifikasi yang sebelumnya dijeda.
+
+#### Kesimpulan
+- Fitur ini memungkinkan interaksi antar pemain yang kompetitif.
+- Logika sistem adil karena menggunakan stat total sebagai penentu kemenangan.
+- Penghapusan data hunter dilakukan secara bersih melalui penghapusan shared memory.
 
 ### I. Fitur ban hunter
 Saat sedang memonitoring sistem, Sung Jin Woo melihat beberapa hunter melakukan kecurangan di dalam sistem. Ia menambahkan fitur di sistem yang membuat dia dapat melarang hunter tertentu untuk melakukan raid atau battle. Karena masa percobaan tak bisa berlangsung selamanya 😇, Sung Jin Woo pun juga menambahkan konfigurasi agar fiturnya dapat memperbolehkan hunter itu melakukan raid atau battle lagi. 
 
 ### Penyelesaian I
+#### Penjelasan Umum
+Untuk mencegah perilaku tidak sah atau penyalahgunaan dalam sistem, Sung Jin Woo menambahkan fitur untuk membatasi akses hunter tertentu, yaitu dengan cara ban. Hunter yang dibanned tidak bisa berpartisipasi dalam fitur raid dungeon atau battle hunter. Namun, hunter yang dibanned bisa di-unban kembali oleh admin jika dianggap sudah tidak melakukan pelanggaran.
+
+#### Fungsi `ban_hunter()`
+Fungsi ban_hunter() memungkinkan admin untuk memilih hunter yang ingin dibanned atau di-unban, melalui menu yang disediakan dalam sistem.
+
+```bash
+void ban_hunter() {
+    int choice;
+    char name[NAME_LEN];
+
+    printf("\\n=========== BAN/UNBAN MENU ===========\\n");
+    printf("1. Ban Hunter\\n");
+    printf("2. Unban Hunter\\n");
+    printf("Choice: ");
+    scanf("%d", &choice); getchar();
+
+    if (choice != 1 && choice != 2) {
+        printf("Invalid choice.\\n");
+        return;
+    }
+
+    printf("\\n=========== HUNTER LIST ===========\\n");
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use) {
+            printf("- %s [%s]\\n", hunters[i].name, hunters[i].banned ? "BANNED" : "ACTIVE");
+        }
+    }
+
+    printf("Enter hunter name: ");
+    fgets(name, NAME_LEN, stdin);
+    name[strcspn(name, "\\n")] = 0;
+
+    for (int i = 0; i < MAX_HUNTERS; i++) {
+        if (hunters[i].in_use && strcmp(hunters[i].name, name) == 0) {
+            hunters[i].banned = (choice == 1 ? 1 : 0);
+            printf("Hunter %s is now %s.\\n", name, hunters[i].banned ? "BANNED" : "UNBANNED");
+            return;
+        }
+    }
+
+    printf("Hunter not found.\\n");
+}
+```
+#### Penjelasan Umum
+1. Menu Ban/Unban ; Terdapat menu pilihan untuk ban atau unban hunter. Jika admin memilih "1", hunter akan dibanned, sedangkan jika memilih "2", hunter akan di-unban.
+
+2. Pencarian Hunter ; Setelah admin memilih tindakan (ban/unban), sistem akan menampilkan daftar semua hunter yang aktif, lengkap dengan status mereka, apakah "ACTIVE" atau "BANNED".
+
+3. Pemilihan Hunter ; Admin dapat memasukkan nama hunter yang ingin dibanned atau di-unban. Jika hunter ditemukan, status mereka akan diubah. Jika tidak ditemukan, sistem akan memberikan pesan error.
+
+#### Kesimpulan
+- Fitur ban/unban ini memastikan bahwa hanya hunter yang diperbolehkan yang bisa melakukan raid dan battle.
+
+- Admin bisa mengatur siapa yang bisa berpartisipasi dalam event dengan menggunakan fitur ini.
+
+- Fitur ini mengontrol akses ke sistem secara efektif.
+
 
 ### J. Fitur reset hunter
 Setelah beberapa pertimbangan, untuk memberikan kesempatan kedua bagi hunter yang ingin bertobat dan memulai dari awal, Sung Jin Woo juga menambahkan fitur di sistem yang membuat dia bisa mengembalikan stats hunter tertentu ke nilai awal. 
@@ -1104,9 +1826,5 @@ Untuk membuat sistem lebih menarik dan tidak membosankan, Sung Jin Woo menambahk
 Terakhir, untuk menambah keamanan sistem agar data hunter tidak bocor, Sung Jin Woo melakukan konfigurasi agar setiap kali sistem dimatikan, maka semua shared memory yang sedang berjalan juga akan ikut terhapus. 
 
 ### Penyelesaian L
-
-
-
-
 
 
